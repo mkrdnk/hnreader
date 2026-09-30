@@ -1,6 +1,7 @@
 require "libadwaita"
 require "./constants"
 require "./http/soup_transport"
+require "./saved_items"
 require "./ui/window"
 
 module HNReader
@@ -18,7 +19,11 @@ module HNReader
     end
 
     private def activate : Nil
-      window = @window ||= UI::Window.new(@application, HN::Client.new(HTTP::SoupTransport.new, cache: HN::Cache.new(HN::Cache.default_directory)))
+      window = @window ||= UI::Window.new(
+        @application,
+        HN::Client.new(HTTP::SoupTransport.new, cache: HN::Cache.new(HN::Cache.default_directory)),
+        SavedItems.new
+      )
       window.widget.present
     end
   end

@@ -27,6 +27,15 @@ module HNReader::UI
       end
     end
 
+    def save_button(saved : Bool, item_name : String, &toggle : -> Bool) : Gtk::Button
+      button = Gtk::Button.new(icon_name: "bookmark-new-symbolic")
+      show_saved_state(button, saved, item_name)
+      button.clicked_signal.connect do
+        show_saved_state(button, toggle.call, item_name)
+      end
+      button
+    end
+
     def margins(widget : Gtk::Widget, size : Int32 = 18) : Nil
       widget.margin_top = size
       widget.margin_bottom = size
@@ -40,6 +49,12 @@ module HNReader::UI
       end
     end
 
+    def clear(list : Gtk::ListBox) : Nil
+      while child = list.first_child
+        list.remove(child)
+      end
+    end
+
     def rich_text(html : String, &open_link : String -> Nil) : Gtk::Label
       label("").tap do |widget|
         widget.markup = Markup.render(html)
@@ -48,6 +63,16 @@ module HNReader::UI
           open_link.call(url)
           true
         end
+      end
+    end
+
+    private def show_saved_state(button : Gtk::Button, saved : Bool, item_name : String) : Nil
+      if saved
+        button.add_css_class("suggested-action")
+        button.tooltip_text = "Remove #{item_name} from saved"
+      else
+        button.remove_css_class("suggested-action")
+        button.tooltip_text = "Save #{item_name}"
       end
     end
   end

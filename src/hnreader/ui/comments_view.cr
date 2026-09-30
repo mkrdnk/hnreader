@@ -1,4 +1,5 @@
 require "../hn/item_batch"
+require "../saved_items"
 require "./formatting"
 require "./widgets"
 
@@ -18,7 +19,7 @@ module HNReader::UI
     @children = [] of CommentsView
 
     def initialize(@client : HN::Client, @ids : Array(Int64), @requests : HTTP::RequestGroup,
-                   @depth : Int32, &@open_link : String -> Nil)
+                   @depth : Int32, @saved : SavedItems, &@open_link : String -> Nil)
       @more = Widgets.button("Load More") { load_more }
       @more.halign = Gtk::Align::Center
       {@rows, @status, @more}.each { |child| @widget.append(child) }
@@ -67,7 +68,10 @@ module HNReader::UI
       end
       meta = Widgets.label("#{item.author} · #{Formatting.age(item.time)}", "caption")
       meta.add_css_class("dim-label")
-      box.append(meta)
+      meta_row = Gtk::Box.new(Gtk::Orientation::Horizontal, 8)
+      meta_row.append(meta)
+      meta_row.append(Widgets.save_button(@saved.saved?(item), "comment") { @saved.toggle(item) })
+      box.append(meta_row)
       unless item.visible?
         box.append(Widgets.label(item.deleted? ? "[deleted]" : "[unavailable]", "dim-label"))
       else
@@ -76,7 +80,7 @@ module HNReader::UI
       unless item.kids.empty?
         label = item.kids.size == 1 ? "1 reply" : "#{item.kids.size} replies"
         expander = Gtk::Expander.new(label)
-        child = CommentsView.new(@client, item.kids, @requests, @depth + 1, &@open_link)
+        child = CommentsView.new(@client, item.kids, @requests, @depth + 1, @saved, &@open_link)
         # Keep deeper threads readable instead of narrowing without limit.
         child.widget.margin_start = @depth < 3 ? 12 : 0
         expander.child = child.widget
