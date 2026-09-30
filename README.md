@@ -31,9 +31,9 @@ in `bin/hnreader.sha256`. It also reads the version from `shard.yml` and creates
 a release directory and a ready-to-upload archive:
 
 ```text
-dist/hnreader-<version>-fedora43-x86_64/
-dist/hnreader-<version>-fedora43-x86_64.tar.gz
-dist/hnreader-<version>-fedora43-x86_64.tar.gz.sha256
+dist/hnreader-<version>-<platform>-x86_64/
+dist/hnreader-<version>-<platform>-x86_64.tar.gz
+dist/hnreader-<version>-<platform>-x86_64.tar.gz.sha256
 ```
 
 The archive contains the binary in `bin/`, the desktop entry and icon under
@@ -45,11 +45,28 @@ directory, verify the **archive** with (example for version `0.1.0`):
 sha256sum --check hnreader-0.1.0-fedora43-x86_64.tar.gz.sha256
 ```
 
-This binary release targets **Fedora 43 x86_64** and requires the system
-**GTK4, libadwaita, WebKitGTK and libsoup runtime dependencies**. The binary
-remains dynamically linked; the archive does not bundle system `.so` libraries
-or statically link GTK/WebKit. Build releases on Fedora 43 x86_64; the packaging
-step does not cross-compile or make binaries portable to other distributions.
+Separate **x86_64** binary releases are built for **Fedora 43**, **Debian 13** and
+**Ubuntu 24.04 LTS**. `<platform>` is `fedora43`, `debian13` or `ubuntu24.04`,
+automatically detected from the build system. Choose the archive matching your
+OS. Packaging rejects unsupported systems rather than giving a binary the wrong label.
+
+Each release requires its distribution's **GTK4, libadwaita, WebKitGTK and libsoup
+runtime dependencies**. Binaries remain dynamically linked; archives do not bundle
+system `.so` libraries or statically link GTK/WebKit. Each binary is built inside
+its target distribution; packaging does not cross-compile.
+
+On Debian 13 or Ubuntu 24.04, install Crystal 1.21 or newer and Shards, then install
+the native build dependencies before `make setup`:
+
+```sh
+sudo apt-get update
+sudo apt-get install build-essential pkg-config libglib2.0-dev libgc-dev \
+  libevent-dev libssl-dev libpcre2-dev libgmp-dev libyaml-dev libxml2-dev \
+  libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
+  libgirepository1.0-dev libsoup-3.0-dev
+make setup
+make build
+```
 
 `make clean` removes the generated release artifacts in `dist/`. Each
 `make build` recreates the current version's release directory and archive.
@@ -121,6 +138,36 @@ window, exercises feeds, retry/pagination, comment expansion, WebKit history,
 scroll restoration and a narrow dark layout, then exits. Screenshots go to
 `/tmp/hnreader-smoke` (override with `HN_SMOKE_OUTPUT`). It uses fixture data and
 does not contact Hacker News.
+
+### GitHub Actions and releases
+
+**CI** runs `make check` and `make build` on branch pushes, pull requests and
+manual runs. The shared build workflow runs a matrix of **Fedora 43**, **Debian 13**
+and **Ubuntu 24.04** x86_64 containers, with Crystal 1.21.1 and dependencies from
+`shard.lock`. Download each archive and its checksum from the corresponding
+`hnreader-<platform>-x86_64` artifact (kept for 14 days).
+GUI smoke tests remain a separate desktop check via `make smoke`.
+
+To prepare a release:
+
+1. Update `version` in `shard.yml` and the displayed `VERSION` in
+   `src/hnreader/constants.cr`, then commit the changes.
+2. Create and push a matching tag, for example:
+
+   ```sh
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. The **Release** workflow checks that the tag matches `shard.yml`, runs the
+   same checks/build on all three distributions, verifies every checksum and creates
+   a **draft GitHub Release** with three `.tar.gz` archives and their `.sha256` files
+   attached. Review its notes and publish it from GitHub Releases.
+
+Rerunning the workflow updates assets only while the release is a draft;
+published releases are not overwritten. Uploads use the built-in `GITHUB_TOKEN`
+with `contents: write` only in the release job; no personal access token is needed.
+The workflows become active after they are pushed to GitHub.
 
 ### Code organization
 

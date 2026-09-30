@@ -9,7 +9,19 @@ if [[ ! "$version" =~ ^[0-9][0-9A-Za-z.+-]*$ ]]; then
   exit 1
 fi
 
-release_name="hnreader-${version}-fedora43-x86_64"
+# Label the native build, never a binary merely renamed for another distribution.
+source /etc/os-release
+case "$ID:$VERSION_ID:$(uname -m)" in
+  fedora:43:x86_64) platform=fedora43 ;;
+  debian:13:x86_64) platform=debian13 ;;
+  ubuntu:24.04:x86_64) platform=ubuntu24.04 ;;
+  *)
+    echo "Unsupported release platform: $ID $VERSION_ID $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+release_name="hnreader-${version}-${platform}-x86_64"
 release_dir="dist/$release_name"
 archive="${release_name}.tar.gz"
 

@@ -1,0 +1,120 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Optional release tag, which must match shard.yml
+        type: string
+        default: ''
+    outputs:
+      version:
+        description: Application version from shard.yml
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Check and build (${{ matrix.platform }} x86_64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: fedora43
+            image: fedora:43
+            family: fedora
+          - platform: debian13
+            image: debian:13
+            family: debian
+          - platform: ubuntu24.04
+            image: ubuntu:24.04
+            family: debian
+    container: ${{ matrix.image }}
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Install Fedora build dependencies
+        if: matrix.family == 'fedora'
+        run: |
+          dnf install -y \
+            git make gcc tar gzip findutils which \
+            glib2-devel gc-devel libevent-devel openssl-devel pcre2-devel \
+            gmp-devel libyaml-devel libxml2-devel \
+            gtk4-devel libadwaita-devel webkitgtk6.0-devel \
+            gobject-introspection-devel libsoup3-devel
+
+      - name: Install Debian/Ubuntu build dependencies
+        if: matrix.family == 'debian'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git make gcc g++ tar gzip xz-utils findutils pkg-config \
+            libglib2.0-dev libgc-dev libevent-dev libssl-dev libpcre2-dev \
+            libgmp-dev libyaml-dev libxml2-dev \
+            libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
+            libgirepository1.0-dev libsoup-3.0-dev
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: '1.21.1'
+
+      - name: Read and validate release version
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          version=$(shards version)
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$ ]]; then
+            echo "Invalid version in shard.yml: $version" >&2
+            exit 1
+          fi
+          if [[ -n "$RELEASE_TAG" && "$RELEASE_TAG" != "v$version" ]]; then
+            echo "Release tag $RELEASE_TAG does not match shard.yml (v$version)." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install locked dependencies and generate bindings
+        run: |
+          shards install --frozen
+          make bindings
+
+      - name: Check formatting and run tests
+        run: make check
+
+      - name: Build release archive
+        run: make build
+
+      - name: Verify archive and checksum
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          archive="hnreader-${VERSION}-${PLATFORM}-x86_64.tar.gz"
+          cd dist
+          sha256sum --check "$archive.sha256"
+          tar -tzf "$archive"
+
+      - name: Save release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: hnreader-${{ matrix.platform }}-x86_64
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

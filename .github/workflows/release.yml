@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+
+  release:
+    name: Attach build to draft release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: hnreader-*-x86_64
+          merge-multiple: true
+          path: dist
+
+      - name: Verify all downloaded archives
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          cd dist
+          for platform in fedora43 debian13 ubuntu24.04; do
+            sha256sum --check "hnreader-${VERSION}-${platform}-x86_64.tar.gz.sha256"
+          done
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          assets=()
+          for platform in fedora43 debian13 ubuntu24.04; do
+            archive="dist/hnreader-${VERSION}-${platform}-x86_64.tar.gz"
+            assets+=("$archive" "$archive.sha256")
+          done
+          if is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft); then
+            if [[ "$is_draft" != true ]]; then
+              echo "Release $RELEASE_TAG is already published; its assets will not be replaced." >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" \
+              --verify-tag --draft --title "HN Reader $VERSION" --generate-notes
+          fi
