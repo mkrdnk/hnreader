@@ -127,6 +127,12 @@ uninstalling.
   website; **Discussion** displays the post text and native comment widgets.
   Posts without an external link open directly in Discussion.
 - Expand a comment's replies to load them. Each level is paginated independently.
+- Use the bookmark buttons to save an article or comment, or to remove it from
+  saved items. Open **Saved items** from the header to browse all bookmarks;
+  articles can be opened from that list, and saved comments link to their
+  Hacker News discussion. Saved item IDs persist in
+  `$XDG_DATA_HOME/hnreader/saved-items.json` (by default
+  `~/.local/share/hnreader/saved-items.json`).
 - The header's back button returns to the feed with its scroll position intact.
   The article toolbar's arrows navigate website history instead.
 - **Open in Browser** opens the current page externally. New windows and file
@@ -135,7 +141,7 @@ uninstalling.
   websites retain their own styles.
 
 This version is a read-only, online reader. It does not include HN login,
-voting, posting, search, bookmarks, translation or a full offline mode. API responses
+voting, posting, search, translation or a full offline mode. API responses
 are cached under `$XDG_CACHE_HOME/hnreader/api-v1` (by default
 `~/.cache/hnreader/api-v1`). Expired entries are ignored and cleaned up on startup.
 Cache storage failures do not prevent network loading. External article pages are
@@ -173,8 +179,8 @@ GUI smoke tests remain a separate desktop check via `make smoke`.
 
 To prepare a release:
 
-1. Update `version` in `shard.yml` and the displayed `VERSION` in
-   `src/hnreader/constants.cr`, then commit the changes.
+1. Update `version` in `shard.yml`, then commit the change. The displayed
+   application version is read from this file at build time.
 2. Create and push a matching tag, for example:
 
    ```sh
