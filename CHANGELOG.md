@@ -12,13 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-### Deprecated
-
 ### Removed
 
 ### Fixed
-
-### Security
 -->
 
 ## 0.1.0 - [unreleased]
@@ -34,13 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make build` now also creates a Fedora 43 x86_64 release archive and its SHA-256 checksum in `dist/`, using the version from `shard.yml`. The archive includes the binary, desktop entry, icon, license and README without bundling system libraries.
 - Release packaging recreates the staging directory on each build to exclude stale files.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 - Embedded the application icon in the binary so it appears in the About dialog without a desktop installation.
 - `make install` now refreshes the icon cache so the installed application icon is discoverable.
 - GUI smoke screenshots now wait for a rendered frame instead of failing when the window has not finished drawing.
-
-### Security
