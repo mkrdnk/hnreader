@@ -187,8 +187,11 @@ To prepare a release:
    a **draft GitHub Release** with three `.tar.gz` archives and their `.sha256` files
    attached. Review its notes and publish it from GitHub Releases.
 
-Rerunning the workflow updates assets only while the release is a draft;
-published releases are not overwritten. Uploads use the built-in `GITHUB_TOKEN`
+Rerunning the workflow replaces assets while the release is a draft. For a
+published release, it uploads only missing assets and succeeds if all files are
+already attached. Existing assets are preserved; a partially uploaded archive and
+checksum pair must pass checksum verification before its missing file is uploaded.
+Uploads use the built-in `GITHUB_TOKEN`
 with `contents: write` only in the release job; no personal access token is needed.
 The workflows become active after they are pushed to GitHub.
 

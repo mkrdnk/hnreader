@@ -18,7 +18,7 @@ jobs:
       release_tag: ${{ github.ref_name }}
 
   release:
-    name: Attach build to draft release
+    name: Attach build to release
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -40,7 +40,7 @@ jobs:
             sha256sum --check "hnreader-${VERSION}-${platform}-x86_64.tar.gz.sha256"
           done
 
-      - name: Create or update draft release
+      - name: Create release or upload assets
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -54,10 +54,39 @@ jobs:
           done
           if is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft); then
             if [[ "$is_draft" != true ]]; then
-              echo "Release $RELEASE_TAG is already published; its assets will not be replaced." >&2
-              exit 1
+              existing=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+              missing=()
+              verification_dir=$(mktemp -d)
+              trap 'rm -rf "$verification_dir"' EXIT
+              for platform in fedora43 debian13 ubuntu24.04; do
+                archive="hnreader-${VERSION}-${platform}-x86_64.tar.gz"
+                pair_missing=()
+                for file in "$archive" "$archive.sha256"; do
+                  if ! grep -Fxq -- "$file" <<< "$existing"; then
+                    pair_missing+=("dist/$file")
+                  fi
+                done
+                if (( ${#pair_missing[@]} == 1 )); then
+                  # Validate the existing file against its newly built counterpart.
+                  for file in "$archive" "$archive.sha256"; do
+                    if grep -Fxq -- "$file" <<< "$existing"; then
+                      gh release download "$RELEASE_TAG" --pattern "$file" --dir "$verification_dir"
+                    else
+                      cp "dist/$file" "$verification_dir/$file"
+                    fi
+                  done
+                  (cd "$verification_dir" && sha256sum --check "$archive.sha256")
+                fi
+                missing+=("${pair_missing[@]}")
+              done
+              if (( ${#missing[@]} > 0 )); then
+                gh release upload "$RELEASE_TAG" "${missing[@]}"
+              else
+                echo "Release $RELEASE_TAG already has all build assets."
+              fi
+            else
+              gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
             fi
-            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" \
               --verify-tag --draft --title "HN Reader $VERSION" --generate-notes
