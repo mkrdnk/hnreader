@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=HN Reader
+Comment=Read Hacker News stories and discussions
+Exec=hnreader
+Icon=hnreader.makridenko.com
+Terminal=false
+Categories=Network;News;GTK;
+Keywords=Hacker News;HN;Reader;
+StartupNotify=true

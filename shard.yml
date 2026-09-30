@@ -1,0 +1,13 @@
+name: hnreader
+version: 0.1.0
+crystal: ">= 1.21.0"
+license: GPL-3.0-only
+
+targets:
+  hnreader:
+    main: src/hnreader.cr
+
+dependencies:
+  libadwaita:
+    github: hugopl/libadwaita.cr
+    commit: 32d7c7de0d0a2bd9f4c0a03011f5cebf2868c859

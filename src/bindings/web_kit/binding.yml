@@ -1,0 +1,10 @@
+namespace: WebKit
+version: "6.0"
+types:
+  # WebKit defines NONE as 2; Crystal's Flags enums reserve None for zero.
+  # The reader does not expose WebKit's editing API.
+  EditorTypingAttributes:
+    ignore: true
+  # Same reserved-name conflict in the unused browser-extension API.
+  WebExtensionMatchPatternOptions:
+    ignore: true
