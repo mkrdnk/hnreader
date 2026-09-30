@@ -15,6 +15,7 @@ module HNReader::UI
     @story_view : StoryView
     @back_button : Gtk::Button
     @theme : Theme
+    @preferences = Preferences.new
 
     def initialize(application : Adw::Application, client : HN::Client)
       @widget = Adw::ApplicationWindow.new(
@@ -25,7 +26,7 @@ module HNReader::UI
       )
       @theme = Theme.new
       Settings.install_styles
-      @feed_view = FeedView.new(client) { |item| show_story(item) }
+      @feed_view = FeedView.new(client, @preferences.default_feed) { |item| show_story(item) }
       @story_view = StoryView.new(client) { |url| open_external(url) }
       @back_button = Widgets.icon_button("go-previous-symbolic", "Back to feed") { show_feed }
       @back_button.visible = false
@@ -60,7 +61,7 @@ module HNReader::UI
       header.pack_start(@feed_view.selector)
       header.pack_end(Widgets.icon_button("help-about-symbolic", "About HN Reader") { show_about })
       header.pack_end(Widgets.icon_button("emblem-system-symbolic", "Settings") do
-        Settings.new(@theme).widget.present(@widget)
+        Settings.new(@theme, @preferences).widget.present(@widget)
       end)
       header.pack_end(@feed_view.refresh_button)
 

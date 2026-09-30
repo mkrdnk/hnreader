@@ -17,13 +17,14 @@ module HNReader::UI
     @scroll_position = 0.0
     @closed = false
 
-    def initialize(client : HN::Client, &on_selected : HN::Item -> Nil)
+    def initialize(client : HN::Client, initial_feed : HN::Feed = HN::Feed::Top, &on_selected : HN::Item -> Nil)
       @loader = HN::FeedLoader.new(client) { update }
       @more_button = Widgets.button("Load More") { @loader.load_more }
       @refresh_button = Widgets.icon_button("view-refresh-symbolic", "Refresh feed") do
         @loader.select_feed(@loader.feed, refresh: true)
       end
       @selector = Gtk::DropDown.new_from_strings(HN::Feed.names)
+      @selector.selected = HN::Feed.values.index(initial_feed).not_nil!.to_u32
       @selector.notify_signal["selected"].connect do
         @loader.select_feed(HN::Feed.values[@selector.selected.to_i])
       end
@@ -38,7 +39,7 @@ module HNReader::UI
     end
 
     def load : Nil
-      @loader.select_feed(HN::Feed::Top)
+      @loader.select_feed(HN::Feed.values[@selector.selected.to_i])
     end
 
     def remember_position : Nil

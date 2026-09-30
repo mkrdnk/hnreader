@@ -1,4 +1,5 @@
 require "./theme"
+require "../preferences"
 require "./widgets"
 
 module HNReader::UI
@@ -7,8 +8,8 @@ module HNReader::UI
     @buttons = {} of Theme::Mode => Gtk::ToggleButton
     @updating = false
 
-    def initialize(@theme : Theme)
-      @widget = Adw::Dialog.new(title: "Settings", content_width: 380, content_height: 250)
+    def initialize(@theme : Theme, preferences : Preferences = Preferences.new)
+      @widget = Adw::Dialog.new(title: "Settings", content_width: 380, content_height: 380)
       content = Gtk::Box.new(Gtk::Orientation::Vertical, 0)
       content.append(Adw::HeaderBar.new)
       body = Gtk::Box.new(Gtk::Orientation::Vertical, 16)
@@ -47,6 +48,32 @@ module HNReader::UI
         choices.append(column)
       end
       body.append(choices)
+      body.append(Gtk::Separator.new(orientation: Gtk::Orientation::Horizontal))
+      body.append(Widgets.label("Startup", "title-3"))
+      startup = Adw::ComboRow.new(
+        title: "Default feed",
+        subtitle: "Opened when the app starts",
+        model: Gtk::StringList.new(HN::Feed.names),
+        selected: HN::Feed.values.index(preferences.default_feed).not_nil!.to_u32,
+      )
+      updating_feed = false
+      startup.notify_signal["selected"].connect do
+        unless updating_feed
+          begin
+            preferences.default_feed = HN::Feed.values[startup.selected.to_i]
+            error_label.visible = false
+          rescue error : File::Error
+            error_label.label = "Could not save default feed. Check configuration folder permissions."
+            error_label.visible = true
+            updating_feed = true
+            startup.selected = HN::Feed.values.index(preferences.default_feed).not_nil!.to_u32
+            updating_feed = false
+          end
+        end
+      end
+      group = Adw::PreferencesGroup.new
+      group.add(startup)
+      body.append(group)
       body.append(error_label)
       content.append(body)
       @widget.child = content

@@ -49,6 +49,7 @@ module HNReader::Testing
     private def start : Nil
       Adw::StyleManager.default.color_scheme = Adw::ColorScheme::ForceLight
       client = HN::Client.new(HTTP::SoupTransport.new, "#{@base_url}/v0")
+      Preferences.new.default_feed = HN::Feed::New
       @window = UI::Window.new(@application, client)
       window.widget.present
       GLib.timeout_milliseconds(INTERVAL_MS) { tick }
@@ -91,8 +92,10 @@ module HNReader::Testing
       return if loader.loading?
 
       check(loader.error.nil?, "Initial feed failed")
+      check(loader.feed == HN::Feed::New, "Saved startup feed was not loaded")
+      check(window.feed_view.selector.selected == HN::Feed.values.index(HN::Feed::New), "Feed selector does not match startup feed")
       check(loader.items.map(&.id) == (1_i64..30_i64).to_a, "Feed order/count incorrect")
-      capture("01-feed-light")
+      return unless capture("01-feed-light")
       loader.load_more
       @step = Step::FailedPage
     end
@@ -134,7 +137,7 @@ module HNReader::Testing
       web = window.story_view.article.not_nil!.web
       return unless web.title? == "Smoke article" && !web.is_loading?
 
-      capture("02-article")
+      return unless capture("02-article")
       web.load_uri("#{@base_url}/second")
       @step = Step::NextPage
     end
@@ -168,7 +171,7 @@ module HNReader::Testing
       return unless texts.count { |text| text.includes?("A native comment") } >= 2
 
       check(texts.includes?("[deleted]"), "Deleted comment placeholder missing")
-      capture("03-discussion")
+      return unless capture("03-discussion")
       window.show_feed
       @step = Step::BackToFeed
     end
@@ -190,7 +193,7 @@ module HNReader::Testing
       return if window.navigation.transition_running? || window.widget.width > 440
       return unless discussion_texts.any?(&.includes?("A native comment"))
 
-      capture("04-narrow-dark")
+      return unless capture("04-narrow-dark")
       window.theme.select(UI::Theme::Mode::Sepia)
       @settings = UI::Settings.new(window.theme)
       @settings.not_nil!.widget.present(window.widget)
@@ -200,7 +203,7 @@ module HNReader::Testing
 
     private def check_settings : Nil
       return if @ticks < 5
-      capture("05-settings-sepia")
+      return unless capture("05-settings-sepia")
       buttons = widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::ToggleButton))
       check(buttons.size == 4, "Expected four theme choices")
       UI::Theme::Mode.values.each_with_index do |mode, index|
@@ -216,6 +219,12 @@ module HNReader::Testing
                    end
         check(scheme == expected, "Incorrect color scheme")
       end
+      startup = widgets(@settings.not_nil!.widget).compact_map(&.as?(Adw::ComboRow)).first
+      check(startup.selected == HN::Feed.values.index(HN::Feed::New), "Settings did not restore startup feed")
+      current_feed = window.feed_view.loader.feed
+      startup.selected = HN::Feed.values.index(HN::Feed::Best).not_nil!.to_u32
+      check(Preferences.new.default_feed == HN::Feed::Best, "Startup feed selection was not saved")
+      check(window.feed_view.loader.feed == current_feed, "Startup setting changed the current feed")
       @settings.not_nil!.widget.close
       @step = Step::ServerStats
       HTTP::SoupTransport.new.get("#{@base_url}/stats") do |response|
@@ -247,12 +256,17 @@ module HNReader::Testing
       result
     end
 
-    private def capture(name : String) : Nil
+    private def capture(name : String) : Bool
       widget = window.widget
       snapshot = Gtk::Snapshot.new
       Gtk::WidgetPaintable.new(widget).snapshot(snapshot, widget.width.to_f64, widget.height.to_f64)
-      texture = widget.renderer.not_nil!.render_texture(snapshot.to_node.not_nil!, nil)
+      node = snapshot.to_node
+      renderer = widget.renderer
+      return false unless node && renderer
+
+      texture = renderer.render_texture(node, nil)
       check(texture.save_to_png(File.join(@output_directory, "#{name}.png")), "Could not save #{name}")
+      true
     end
 
     private def check(condition : Bool, message : String) : Nil
