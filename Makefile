@@ -16,6 +16,7 @@ bindings: link-libraries
 
 build: link-libraries
 	shards build hnreader
+	cd bin && sha256sum hnreader > hnreader.sha256
 
 run: build
 	./bin/hnreader
