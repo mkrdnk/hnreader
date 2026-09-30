@@ -44,7 +44,7 @@ jobs:
         if: matrix.family == 'fedora'
         run: |
           dnf install -y \
-            git make gcc tar gzip findutils which \
+            ca-certificates curl-minimal git make gcc tar gzip findutils which coreutils \
             glib2-devel gc-devel libevent-devel openssl-devel pcre2-devel \
             gmp-devel libyaml-devel libxml2-devel \
             gtk4-devel libadwaita-devel webkitgtk6.0-devel \
@@ -57,7 +57,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            ca-certificates git make gcc g++ tar gzip xz-utils findutils pkg-config \
+            ca-certificates curl git make gcc g++ tar gzip xz-utils findutils pkg-config coreutils \
             libglib2.0-dev libgc-dev libevent-dev libssl-dev libpcre2-dev \
             libgmp-dev libyaml-dev libxml2-dev \
             libgtk-4-dev libadwaita-1-dev libwebkitgtk-6.0-dev \
@@ -67,9 +67,26 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: crystal-lang/install-crystal@v1
-        with:
-          crystal: '1.21.1'
+      # install-crystal assumes apt and requires obsolete PCRE1 packages on Linux.
+      # Native dependencies are installed for each distribution above.
+      - name: Install Crystal and Shards
+        env:
+          CRYSTAL_VERSION: '1.21.1'
+          CRYSTAL_SHA256: '08b5779df8cf280c4a799599862bbe4d42103ba082aa73429562713c8a9f3b43'
+        run: |
+          archive="crystal-${CRYSTAL_VERSION}-1-linux-x86_64.tar.gz"
+          download="$RUNNER_TEMP/$archive"
+          destination="$RUNNER_TEMP/crystal"
+          curl --fail --location --retry 3 \
+            "https://github.com/crystal-lang/crystal/releases/download/${CRYSTAL_VERSION}/${archive}" \
+            --output "$download"
+          echo "$CRYSTAL_SHA256  $download" | sha256sum --check --strict
+          mkdir -p "$destination"
+          tar -xzf "$download" --strip-components=1 -C "$destination"
+          ln -s share/crystal/src "$destination/src"
+          echo "$destination/bin" >> "$GITHUB_PATH"
+          "$destination/bin/crystal" --version
+          "$destination/bin/shards" --version
 
       - name: Read and validate release version
         id: version
