@@ -76,6 +76,31 @@ module HNReader::UI
       group.add(startup)
       body.append(group)
       body.append(Gtk::Separator.new(orientation: Gtk::Orientation::Horizontal))
+      body.append(Widgets.label("Reading", "title-3"))
+      reader_mode = Adw::SwitchRow.new(
+        title: "Reader mode",
+        subtitle: "Open articles in the native reading view",
+        active: preferences.reader_mode?,
+      )
+      updating_reader_mode = false
+      reader_mode.notify_signal["active"].connect do
+        unless updating_reader_mode
+          begin
+            preferences.reader_mode = reader_mode.active?
+            error_label.visible = false
+          rescue error : File::Error
+            error_label.label = "Could not save reader mode. Check configuration folder permissions."
+            error_label.visible = true
+            updating_reader_mode = true
+            reader_mode.active = preferences.reader_mode?
+            updating_reader_mode = false
+          end
+        end
+      end
+      reading_group = Adw::PreferencesGroup.new
+      reading_group.add(reader_mode)
+      body.append(reading_group)
+      body.append(Gtk::Separator.new(orientation: Gtk::Orientation::Horizontal))
       body.append(Widgets.label("Cache", "title-3"))
       body.append(Widgets.label("Remove saved feeds, stories and comments. Your settings are kept.", "dim-label"))
       cache_status = Widgets.label("")
@@ -114,6 +139,19 @@ module HNReader::UI
         button.theme-swatch:focus-visible { outline: 2px solid @accent_bg_color; outline-offset: 4px; }
         .theme-check { opacity: 0; border-radius: 999px; padding: 2px; background: @accent_bg_color; color: @accent_fg_color; }
         :checked > .theme-check { opacity: 1; }
+        .reader-body { font-size: 1.08em; }
+        .reader-heading { font-size: 1.25em; font-weight: bold; }
+        .reader-quote {
+          border-left: 3px solid @borders;
+          padding: 4px 0 4px 14px;
+          color: alpha(currentColor, 0.8);
+        }
+        .reader-code {
+          padding: 12px;
+          border-radius: 8px;
+          background: alpha(currentColor, 0.08);
+        }
+        .reader-list-item { margin-left: 12px; }
       CSS
       if display = Gdk::Display.default
         Gtk::StyleContext.add_provider_for_display(display, provider, 600_u32)

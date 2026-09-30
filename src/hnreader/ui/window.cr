@@ -20,11 +20,10 @@ module HNReader::UI
     @back_button : Gtk::Button
     @saved_button : Gtk::Button
     @theme : Theme
-    @preferences = Preferences.new
     @back_destination = "feed"
 
     def initialize(application : Adw::Application, @client : HN::Client,
-                   saved : SavedItems = SavedItems.new)
+                   saved : SavedItems = SavedItems.new, @preferences : Preferences = Preferences.new)
       Icons.install
       @widget = Adw::ApplicationWindow.new(
         application: application,
@@ -41,7 +40,7 @@ module HNReader::UI
         ->(item : HN::Item) { show_story(item) },
         ->(url : String) { open_external(url) }
       )
-      @story_view = StoryView.new(client, saved) { |url| open_external(url) }
+      @story_view = StoryView.new(client, saved, @preferences) { |url| open_external(url) }
       @back_button = Widgets.icon_button("go-previous-symbolic", "Go back") { go_back }
       @saved_button = Widgets.icon_button("user-bookmarks-symbolic", "Saved items") { show_saved }
       @back_button.visible = false

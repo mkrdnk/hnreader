@@ -18,7 +18,8 @@ module HNReader::UI
     @article : ArticleView?
     @selected : HN::Item?
 
-    def initialize(@client : HN::Client, @saved : SavedItems, &@open_external : String -> Nil)
+    def initialize(@client : HN::Client, @saved : SavedItems, @preferences : Preferences,
+                   &@open_external : String -> Nil)
       build
       @pages.notify_signal["visible-child-name"].connect { load_visible_page }
     end
@@ -93,7 +94,7 @@ module HNReader::UI
     private def ensure_article(url : String?) : Nil
       return if @article || !url
 
-      article = ArticleView.new(&@open_external)
+      article = ArticleView.new(@preferences, &@open_external)
       @article = article
       @article_box.append(article.widget)
       article.load(url)
