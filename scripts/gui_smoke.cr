@@ -19,6 +19,7 @@ module HNReader::Testing
       Replies
       BackToFeed
       NarrowLayout
+      Settings
       ServerStats
     end
 
@@ -31,6 +32,7 @@ module HNReader::Testing
     @feeds = HN::Feed.values.dup
     @scroll_position = 0.0
     @failed = false
+    @settings : UI::Settings?
 
     def initialize
       @application = Adw::Application.new("#{APPLICATION_ID}.Smoke", Gio::ApplicationFlags::NonUnique)
@@ -74,6 +76,7 @@ module HNReader::Testing
       in .replies?       then check_replies
       in .back_to_feed?  then check_back_to_feed
       in .narrow_layout? then check_narrow_layout
+      in .settings?      then check_settings
       in .server_stats?
         # The async stats request completes the test.
       end
@@ -188,6 +191,32 @@ module HNReader::Testing
       return unless discussion_texts.any?(&.includes?("A native comment"))
 
       capture("04-narrow-dark")
+      window.theme.select(UI::Theme::Mode::Sepia)
+      @settings = UI::Settings.new(window.theme)
+      @settings.not_nil!.widget.present(window.widget)
+      @ticks = 0
+      @step = Step::Settings
+    end
+
+    private def check_settings : Nil
+      return if @ticks < 5
+      capture("05-settings-sepia")
+      buttons = widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::ToggleButton))
+      check(buttons.size == 4, "Expected four theme choices")
+      UI::Theme::Mode.values.each_with_index do |mode, index|
+        buttons[index].active = true
+        check(window.theme.mode == mode, "Theme selection failed")
+        check(buttons.count(&.active?) == 1, "Theme selection must be exclusive")
+        check(UI::Theme.new.mode == mode, "Theme preference was not persisted")
+        scheme = Adw::StyleManager.default.color_scheme
+        expected = case mode
+                   when .system? then Adw::ColorScheme::Default
+                   when .dark?   then Adw::ColorScheme::ForceDark
+                   else               Adw::ColorScheme::ForceLight
+                   end
+        check(scheme == expected, "Incorrect color scheme")
+      end
+      @settings.not_nil!.widget.close
       @step = Step::ServerStats
       HTTP::SoupTransport.new.get("#{@base_url}/stats") do |response|
         begin

@@ -1,7 +1,7 @@
 # Inspection hooks are compiled only into the opt-in GUI test.
 module HNReader::UI
   class Window
-    getter feed_view, story_view, navigation
+    getter feed_view, story_view, navigation, theme
   end
 
   class FeedView

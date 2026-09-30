@@ -4,10 +4,11 @@ cd "$(dirname "$0")/.."
 export CRYSTAL_CACHE_DIR="${CRYSTAL_CACHE_DIR:-/tmp/hnreader-crystal-cache}"
 export HN_SMOKE_OUTPUT="${HN_SMOKE_OUTPUT:-/tmp/hnreader-smoke}"
 mkdir -p "$HN_SMOKE_OUTPUT" bin
+export XDG_CONFIG_HOME=$(mktemp -d /tmp/hnreader-config.XXXXXX)
 port_file=$(mktemp /tmp/hnreader-port.XXXXXX)
 python3 scripts/smoke_server.py "$port_file" &
 server_pid=$!
-trap 'kill "$server_pid" 2>/dev/null || true; rm -f "$port_file"' EXIT
+trap 'kill "$server_pid" 2>/dev/null || true; rm -f "$port_file"; rm -rf "$XDG_CONFIG_HOME"' EXIT
 for attempt in {1..50}; do
   if [[ -s "$port_file" ]]; then break; fi
   sleep 0.1
