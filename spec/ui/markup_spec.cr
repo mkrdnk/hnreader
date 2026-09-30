@@ -23,4 +23,17 @@ describe HNReader::UI::Markup do
     result.should contain("&amp;")
     result.should_not contain("size=")
   end
+
+  it "resolves relative links and removes page chrome" do
+    html = %(<header>Site header</header><article><h2>Section</h2>) +
+           %(<p>Read <a href="/more">more</a>.</p><ul><li>First</li><li>Second</li></ul></article>) +
+           %(<footer>Site footer</footer>)
+    result = HNReader::UI::Markup.render(html, "https://example.org/posts/article")
+
+    result.should contain("<b>Section</b>")
+    result.should contain(%(<a href="https://example.org/more">more</a>))
+    result.should contain("• First")
+    result.should_not contain("Site header")
+    result.should_not contain("Site footer")
+  end
 end

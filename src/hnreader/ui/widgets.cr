@@ -55,9 +55,9 @@ module HNReader::UI
       end
     end
 
-    def rich_text(html : String, &open_link : String -> Nil) : Gtk::Label
+    def rich_text(html : String, base_url : String? = nil, &open_link : String -> Nil) : Gtk::Label
       label("").tap do |widget|
-        widget.markup = Markup.render(html)
+        widget.markup = Markup.render(html, base_url)
         widget.selectable = true
         widget.activate_link_signal.connect do |url|
           open_link.call(url)
