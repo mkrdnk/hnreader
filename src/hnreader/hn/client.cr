@@ -1,12 +1,13 @@
 require "../http/request_group"
 require "../http/transport"
+require "../constants"
 require "./cache"
 require "./feed"
 require "./item"
 
 module HNReader::HN
   class Client
-    BASE_URL = "https://hacker-news.firebaseio.com/v0"
+    BASE_URL = HNReader::HN_API_URL
 
     @cache_generation = 0_u64
 
