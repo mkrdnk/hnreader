@@ -91,6 +91,16 @@ Installation also refreshes the icon cache. The application embeds its icon at
 build time, so the About dialog displays it even when running an uninstalled binary.
 Building requires `glib-compile-resources`; installing requires `gtk-update-icon-cache`.
 
+To remove the installed binary, desktop entry and icon:
+
+```sh
+make uninstall
+```
+
+Uninstallation refreshes the icon cache and preserves user settings. If you
+overrode `PREFIX` or `DESTDIR` during installation, use the same values when
+uninstalling.
+
 ## Using the reader
 
 - Open **Settings** in the header to choose System, Light, Sepia or Dark appearance.

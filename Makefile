@@ -3,7 +3,7 @@ export CRYSTAL_CACHE_DIR ?= /tmp/hnreader-crystal-cache
 export LIBRARY_PATH := $(CURDIR)/.build/lib$(if $(LIBRARY_PATH),:$(LIBRARY_PATH))
 CRYSTAL_SOURCES := src spec scripts/gui_smoke.cr
 
-.PHONY: setup bindings build run test format check smoke install clean link-libraries resources
+.PHONY: setup bindings build run test format check smoke install uninstall clean link-libraries resources
 link-libraries:
 	@./scripts/link-libraries.sh
 
@@ -47,3 +47,11 @@ install: build
 	install -Dm644 data/hnreader.makridenko.com.desktop $(DESTDIR)$(PREFIX)/share/applications/hnreader.makridenko.com.desktop
 	install -Dm644 data/hnreader.makridenko.com.svg $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/hnreader.makridenko.com.svg
 	gtk-update-icon-cache --force --ignore-theme-index "$(DESTDIR)$(PREFIX)/share/icons/hicolor"
+
+uninstall:
+	rm -f "$(DESTDIR)$(PREFIX)/bin/hnreader"
+	rm -f "$(DESTDIR)$(PREFIX)/share/applications/hnreader.makridenko.com.desktop"
+	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/hnreader.makridenko.com.svg"
+	if [ -d "$(DESTDIR)$(PREFIX)/share/icons/hicolor" ]; then \
+		gtk-update-icon-cache --force --ignore-theme-index "$(DESTDIR)$(PREFIX)/share/icons/hicolor"; \
+	fi
