@@ -29,10 +29,25 @@ class Handler(BaseHTTPRequestHandler):
                     200,
                     b"<!doctype html><html><head><title>Smoke article</title>"
                     b"<meta name='viewport' content='width=device-width'></head>"
-                    b"<body><h1>A story inside HN Reader</h1>"
-                    b"<p>This page is served locally through WebKitGTK 6.0.</p>"
-                    b"<p><a href='/second'>Continue reading</a></p></body></html>",
+                    b"<body><nav>Website navigation</nav><article>"
+                    b"<h1>A story inside HN Reader</h1>"
+                    b"<p>This page is served locally through WebKitGTK 6.0. "
+                    b"The native reader extracts the main article and presents it "
+                    b"with GTK widgets that follow the selected application theme.</p>"
+                    b"<p>Extra prose makes this fixture representative of an article "
+                    b"instead of a navigation shell, while remaining deterministic "
+                    b"and independent from the Internet.</p>"
+                    b"<p><a href='/second'>Continue reading</a></p>"
+                    b"<img src='/slow-resource.svg' alt='Slow decorative resource'>"
+                    b"</article></body></html>",
                     "text/html",
+                )
+            elif self.path == "/slow-resource.svg":
+                time.sleep(3)
+                self.respond(
+                    200,
+                    b"<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/>",
+                    "image/svg+xml",
                 )
             elif self.path == "/second":
                 self.respond(

@@ -50,8 +50,13 @@ module HNReader::Testing
     private def start : Nil
       Adw::StyleManager.default.color_scheme = Adw::ColorScheme::ForceLight
       client = HN::Client.new(HTTP::SoupTransport.new, "#{@base_url}/v0")
-      Preferences.new.default_feed = HN::Feed::New
-      @window = UI::Window.new(@application, client)
+      preferences = Preferences.new(
+        File.join(@output_directory, "default-feed"),
+        File.join(@output_directory, "reader-mode"),
+      )
+      preferences.default_feed = HN::Feed::New
+      saved = SavedItems.new(File.join(@output_directory, "saved-items.json"))
+      @window = UI::Window.new(@application, client, saved, preferences)
       window.widget.present
       GLib.timeout_milliseconds(INTERVAL_MS) { tick }
     rescue error
@@ -136,9 +141,17 @@ module HNReader::Testing
     end
 
     private def check_article : Nil
-      web = window.story_view.article.not_nil!.web
-      return unless web.title? == "Smoke article" && !web.is_loading?
+      article = window.story_view.article.not_nil!
+      web = article.web
+      return unless web.title? == "Smoke article"
+      return unless article.pages.visible_child_name == "reader"
 
+      check(web.is_loading?, "Reader mode waited for non-document resources")
+      reader_labels = widgets(article.reader_content).compact_map(&.as?(Gtk::Label))
+      check(reader_labels.size >= 5, "Reader content was not split into native blocks")
+      reader_text = reader_labels.map(&.label).join(" ")
+      check(reader_text.includes?("native reader extracts the main article"), "Native reader content missing")
+      check(article.reader_button.active?, "Reader mode was not enabled by default")
       return unless capture("02-article")
       web.load_uri("#{@base_url}/second")
       @step = Step::NextPage
@@ -197,7 +210,7 @@ module HNReader::Testing
 
       return unless capture("04-narrow-dark")
       window.theme.select(UI::Theme::Mode::Sepia)
-      @settings = UI::Settings.new(window.theme, window.client)
+      @settings = UI::Settings.new(window.theme, window.client, window.preferences)
       @settings.not_nil!.widget.present(window.widget)
       @ticks = 0
       @step = Step::Settings
@@ -225,8 +238,13 @@ module HNReader::Testing
       check(startup.selected == HN::Feed.values.index(HN::Feed::New), "Settings did not restore startup feed")
       current_feed = window.feed_view.loader.feed
       startup.selected = HN::Feed.values.index(HN::Feed::Best).not_nil!.to_u32
-      check(Preferences.new.default_feed == HN::Feed::Best, "Startup feed selection was not saved")
+      check(window.preferences.default_feed == HN::Feed::Best, "Startup feed selection was not saved")
       check(window.feed_view.loader.feed == current_feed, "Startup setting changed the current feed")
+      reader_mode = widgets(@settings.not_nil!.widget).compact_map(&.as?(Adw::SwitchRow)).first
+      check(reader_mode.active?, "Reader mode setting did not restore its default")
+      reader_mode.active = false
+      check(!window.preferences.reader_mode?, "Reader mode setting was not applied")
+      reader_mode.active = true
       clear_cache = widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.label == "Clear cache" }.not_nil!
       clear_cache.clicked_signal.emit
       check(widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::Label)).any? { |label| label.label == "Cache cleared." && label.visible? }, "Cache clear confirmation missing")
