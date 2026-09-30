@@ -125,7 +125,6 @@ module HNReader::UI
       ids = @loader.items.map(&.id)
       return if ids == @rendered_ids
 
-      # Append pages without disturbing scroll position or keyboard focus.
       if ids[0, @rendered_ids.size] != @rendered_ids
         while child = @list.first_child
           @list.remove(child)

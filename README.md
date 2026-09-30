@@ -1,5 +1,7 @@
 # HN Reader
 
+[![Build](https://github.com/mkrdnk/hnreader/actions/workflows/build.yml/badge.svg)](https://github.com/mkrdnk/hnreader/actions/workflows/build.yml)
+
 A native GNOME reader for Hacker News, written in Crystal with GTK4 and libadwaita.
 Read Top, New, Best, Ask, Show and Jobs feeds, follow comment threads, and view
 articles in an embedded WebKitGTK browser.
