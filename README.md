@@ -27,12 +27,32 @@ make run
 from the installed GObject typelibs. Run it again after changing the dependency
 versions or upgrading the system libraries. Generated bindings and binaries
 are not committed. `make build` produces `bin/hnreader` and its SHA-256 checksum
-in `bin/hnreader.sha256`. Attach both files to a release. After downloading them
-into the same directory, verify the binary with:
+in `bin/hnreader.sha256`. It also reads the version from `shard.yml` and creates
+a release directory and a ready-to-upload archive:
+
+```text
+dist/hnreader-<version>-fedora43-x86_64/
+dist/hnreader-<version>-fedora43-x86_64.tar.gz
+dist/hnreader-<version>-fedora43-x86_64.tar.gz.sha256
+```
+
+The archive contains the binary in `bin/`, the desktop entry and icon under
+`share/`, plus `LICENSE` and `README.md`. Upload the `.tar.gz` and its
+`.tar.gz.sha256` file to GitHub Releases. After downloading both into the same
+directory, verify the **archive** with (example for version `0.1.0`):
 
 ```sh
-sha256sum --check hnreader.sha256
+sha256sum --check hnreader-0.1.0-fedora43-x86_64.tar.gz.sha256
 ```
+
+This binary release targets **Fedora 43 x86_64** and requires the system
+**GTK4, libadwaita, WebKitGTK and libsoup runtime dependencies**. The binary
+remains dynamically linked; the archive does not bundle system `.so` libraries
+or statically link GTK/WebKit. Build releases on Fedora 43 x86_64; the packaging
+step does not cross-compile or make binaries portable to other distributions.
+
+`make clean` removes the generated release artifacts in `dist/`. Each
+`make build` recreates the current version's release directory and archive.
 
 If the GTK, libadwaita, WebKit and GObject Introspection runtime libraries and
 typelibs are already installed, Make can also use them without their `-devel`

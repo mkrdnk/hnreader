@@ -3,7 +3,7 @@ export CRYSTAL_CACHE_DIR ?= /tmp/hnreader-crystal-cache
 export LIBRARY_PATH := $(CURDIR)/.build/lib$(if $(LIBRARY_PATH),:$(LIBRARY_PATH))
 CRYSTAL_SOURCES := src spec scripts/gui_smoke.cr
 
-.PHONY: setup bindings build run test format check smoke install link-libraries
+.PHONY: setup bindings build run test format check smoke install clean link-libraries
 link-libraries:
 	@./scripts/link-libraries.sh
 
@@ -17,6 +17,10 @@ bindings: link-libraries
 build: link-libraries
 	shards build hnreader
 	cd bin && sha256sum hnreader > hnreader.sha256
+	bash scripts/package-release.sh
+
+clean:
+	rm -rf dist/
 
 run: build
 	./bin/hnreader
