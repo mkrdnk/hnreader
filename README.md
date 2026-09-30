@@ -56,6 +56,8 @@ This installs the binary, desktop entry and icon under `~/.local`. Ensure
 - Open **Settings** in the header to choose System, Light, Sepia or Dark appearance.
   Changes apply immediately and are saved in `$XDG_CONFIG_HOME/hnreader/theme`
   (by default `~/.config/hnreader/theme`). External articles retain their website styling.
+- Open **About HN Reader** in the header for the app description, version, license,
+  and links to GitHub and Hacker News.
 
 - Select a feed in the header. Refresh reloads it; **Load More** fetches the next
   30 entries in Hacker News order.
