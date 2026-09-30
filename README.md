@@ -24,7 +24,13 @@ make run
 `make setup` installs the locked Crystal dependencies and generates bindings
 from the installed GObject typelibs. Run it again after changing the dependency
 versions or upgrading the system libraries. Generated bindings and binaries
-are not committed. `make build` produces `bin/hnreader`.
+are not committed. `make build` produces `bin/hnreader` and its SHA-256 checksum
+in `bin/hnreader.sha256`. Attach both files to a release. After downloading them
+into the same directory, verify the binary with:
+
+```sh
+sha256sum --check hnreader.sha256
+```
 
 If the GTK, libadwaita, WebKit and GObject Introspection runtime libraries and
 typelibs are already installed, Make can also use them without their `-devel`
