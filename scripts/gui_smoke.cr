@@ -197,7 +197,7 @@ module HNReader::Testing
 
       return unless capture("04-narrow-dark")
       window.theme.select(UI::Theme::Mode::Sepia)
-      @settings = UI::Settings.new(window.theme)
+      @settings = UI::Settings.new(window.theme, window.client)
       @settings.not_nil!.widget.present(window.widget)
       @ticks = 0
       @step = Step::Settings
@@ -227,6 +227,9 @@ module HNReader::Testing
       startup.selected = HN::Feed.values.index(HN::Feed::Best).not_nil!.to_u32
       check(Preferences.new.default_feed == HN::Feed::Best, "Startup feed selection was not saved")
       check(window.feed_view.loader.feed == current_feed, "Startup setting changed the current feed")
+      clear_cache = widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.label == "Clear cache" }.not_nil!
+      clear_cache.clicked_signal.emit
+      check(widgets(@settings.not_nil!.widget).compact_map(&.as?(Gtk::Label)).any? { |label| label.label == "Cache cleared." && label.visible? }, "Cache clear confirmation missing")
       @settings.not_nil!.widget.close
       about_button = widgets(window.widget).compact_map(&.as?(Gtk::Button)).find do |button|
         button.tooltip_text == "About HN Reader"

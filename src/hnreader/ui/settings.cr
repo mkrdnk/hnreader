@@ -1,5 +1,6 @@
 require "./theme"
 require "../preferences"
+require "../hn/client"
 require "./widgets"
 
 module HNReader::UI
@@ -8,8 +9,8 @@ module HNReader::UI
     @buttons = {} of Theme::Mode => Gtk::ToggleButton
     @updating = false
 
-    def initialize(@theme : Theme, preferences : Preferences = Preferences.new)
-      @widget = Adw::Dialog.new(title: "Settings", content_width: 380, content_height: 380)
+    def initialize(@theme : Theme, client : HN::Client, preferences : Preferences = Preferences.new)
+      @widget = Adw::Dialog.new(title: "Settings", content_width: 380, content_height: 520)
       content = Gtk::Box.new(Gtk::Orientation::Vertical, 0)
       content.append(Adw::HeaderBar.new)
       body = Gtk::Box.new(Gtk::Orientation::Vertical, 16)
@@ -74,8 +75,23 @@ module HNReader::UI
       group = Adw::PreferencesGroup.new
       group.add(startup)
       body.append(group)
+      body.append(Gtk::Separator.new(orientation: Gtk::Orientation::Horizontal))
+      body.append(Widgets.label("Cache", "title-3"))
+      body.append(Widgets.label("Remove saved feeds, stories and comments. Your settings are kept.", "dim-label"))
+      cache_status = Widgets.label("")
+      cache_status.visible = false
+      clear_button = Widgets.button("Clear cache") do
+        cleared = client.clear_cache
+        cache_status.label = cleared ? "Cache cleared." : "Could not remove all cache files. Check cache folder permissions."
+        cache_status.visible = true
+      end
+      clear_button.halign = Gtk::Align::Start
+      body.append(clear_button)
+      body.append(cache_status)
       body.append(error_label)
-      content.append(body)
+      scrolled = Gtk::ScrolledWindow.new(hscrollbar_policy: Gtk::PolicyType::Never, vexpand: true)
+      scrolled.child = body
+      content.append(scrolled)
       @widget.child = content
     end
 

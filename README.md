@@ -108,6 +108,9 @@ uninstalling.
   (by default `~/.config/hnreader/theme`). External articles retain their website styling.
 - In **Settings → Startup**, choose the default feed (Top, New, Best, Ask, Show or Jobs).
   It opens on the next launch; Top is used until you choose another feed.
+- In **Settings → Cache**, click **Clear cache** to remove saved feeds, stories
+  and comments from memory and disk. Settings and the currently displayed content
+  are preserved; subsequent requests load fresh data.
 - Open **About HN Reader** in the header for the app description, version, license,
   and links to GitHub and Hacker News.
 

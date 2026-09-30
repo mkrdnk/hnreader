@@ -18,7 +18,7 @@ module HNReader::UI
     @theme : Theme
     @preferences = Preferences.new
 
-    def initialize(application : Adw::Application, client : HN::Client)
+    def initialize(application : Adw::Application, @client : HN::Client)
       Icons.install
       @widget = Adw::ApplicationWindow.new(
         application: application,
@@ -63,7 +63,7 @@ module HNReader::UI
       header.pack_start(@feed_view.selector)
       header.pack_end(Widgets.icon_button("help-about-symbolic", "About HN Reader") { show_about })
       header.pack_end(Widgets.icon_button("emblem-system-symbolic", "Settings") do
-        Settings.new(@theme, @preferences).widget.present(@widget)
+        Settings.new(@theme, @client, @preferences).widget.present(@widget)
       end)
       header.pack_end(@feed_view.refresh_button)
 
