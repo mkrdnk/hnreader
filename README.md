@@ -4,6 +4,8 @@ A native GNOME reader for Hacker News, written in Crystal with GTK4 and libadwai
 Read Top, New, Best, Ask, Show and Jobs feeds, follow comment threads, and view
 articles in an embedded WebKitGTK browser.
 
+![screenshot](docs/assets/screenshot_dark.png)
+
 ## Build and run
 
 Requires Crystal **1.21 or later**, Shards, GTK **4.12 or later**, libadwaita
