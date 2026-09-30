@@ -1,9 +1,9 @@
 PREFIX ?= $(HOME)/.local
 export CRYSTAL_CACHE_DIR ?= /tmp/hnreader-crystal-cache
 export LIBRARY_PATH := $(CURDIR)/.build/lib$(if $(LIBRARY_PATH),:$(LIBRARY_PATH))
-CRYSTAL_SOURCES := src spec
+CRYSTAL_SOURCES := src spec scripts/gui_smoke.cr
 
-.PHONY: setup bindings build run test format check install link-libraries
+.PHONY: setup bindings build run test format check smoke install link-libraries
 link-libraries:
 	@./scripts/link-libraries.sh
 
@@ -29,6 +29,9 @@ format:
 check:
 	crystal tool format --check $(CRYSTAL_SOURCES)
 	crystal spec
+
+smoke: link-libraries
+	./scripts/gui-smoke.sh
 
 install: build
 	install -Dm755 bin/hnreader $(DESTDIR)$(PREFIX)/bin/hnreader
