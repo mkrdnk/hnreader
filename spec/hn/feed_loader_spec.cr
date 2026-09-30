@@ -96,3 +96,27 @@ describe HNReader::HN::FeedLoader do
     loader.items.size.should eq(1)
   end
 end
+
+describe "FeedLoader caching" do
+  it "shows a previously opened feed immediately and fetches new data on refresh" do
+    transport = SpecSupport::FakeTransport.new
+    loader = HNReader::HN::FeedLoader.new(HNReader::HN::Client.new(transport)) { }
+    loader.select_feed(HNReader::HN::Feed::Top)
+    transport.reply("topstories.json", "[1]")
+    transport.reply("item/1.json", SpecSupport.story(1))
+    loader.select_feed(HNReader::HN::Feed::New)
+    transport.reply("newstories.json", "[]")
+
+    loader.select_feed(HNReader::HN::Feed::Top)
+    loader.items.map(&.id).should eq([1_i64])
+    loader.loading?.should be_false
+    transport.pending.should be_empty
+
+    loader.select_feed(HNReader::HN::Feed::Top, refresh: true)
+    loader.loading?.should be_true
+    transport.reply("topstories.json", "[1]")
+    transport.reply("item/1.json", SpecSupport.story(1, ",\"score\":42"))
+    loader.items.first.score.should eq(42)
+    loader.loading?.should be_false
+  end
+end

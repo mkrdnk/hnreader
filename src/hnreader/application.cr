@@ -18,7 +18,7 @@ module HNReader
     end
 
     private def activate : Nil
-      window = @window ||= UI::Window.new(@application, HN::Client.new(HTTP::SoupTransport.new))
+      window = @window ||= UI::Window.new(@application, HN::Client.new(HTTP::SoupTransport.new, cache: HN::Cache.new(HN::Cache.default_directory)))
       window.widget.present
     end
   end

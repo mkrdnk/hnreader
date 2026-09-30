@@ -111,8 +111,9 @@ uninstalling.
 - Open **About HN Reader** in the header for the app description, version, license,
   and links to GitHub and Hacker News.
 
-- Select a feed in the header. Refresh reloads it; **Load More** fetches the next
-  30 entries in Hacker News order.
+- Select a feed in the header. Feeds, stories and comments are cached for five
+  minutes, including across app restarts. **Refresh** clears the cache and reloads
+  the feed; **Load More** fetches the next 30 entries in Hacker News order.
 - Open a story to switch to its own screen. **Article** displays the original
   website; **Discussion** displays the post text and native comment widgets.
   Posts without an external link open directly in Discussion.
@@ -125,9 +126,12 @@ uninstalling.
   websites retain their own styles.
 
 This version is a read-only, online reader. It does not include HN login,
-voting, posting, search, bookmarks, translation or offline storage. Items are
-cached in memory for the session; refreshing clears the item cache. Website
-cookies use an ephemeral WebKit session and are not persisted as a browser profile.
+voting, posting, search, bookmarks, translation or a full offline mode. API responses
+are cached under `$XDG_CACHE_HOME/hnreader/api-v1` (by default
+`~/.cache/hnreader/api-v1`). Expired entries are ignored and cleaned up on startup.
+Cache storage failures do not prevent network loading. External article pages are
+not stored in this cache. Website cookies use an ephemeral WebKit session and
+are not persisted as a browser profile.
 
 ## Development
 

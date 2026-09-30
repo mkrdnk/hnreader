@@ -1,5 +1,6 @@
 require "../http/request_group"
 require "../http/transport"
+require "./cache"
 require "./feed"
 require "./item"
 
@@ -7,12 +8,13 @@ module HNReader::HN
   class Client
     BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
-    @cache = {} of Int64 => Item
+    @cache_generation = 0_u64
 
-    def initialize(@transport : HTTP::Transport, @base_url : String = BASE_URL)
+    def initialize(@transport : HTTP::Transport, @base_url : String = BASE_URL, @cache : Cache = Cache.new)
     end
 
-    def clear_cache : Nil
+    def clear_cache : Bool
+      @cache_generation &+= 1
       @cache.clear
     end
 
@@ -21,30 +23,31 @@ module HNReader::HN
     end
 
     def item(id : Int64, requests : HTTP::RequestGroup, &callback : Item? | Failure -> Nil) : Nil
-      return if requests.cancelled?
-
-      if cached = @cache[id]?
-        callback.call(cached)
-        return
-      end
-
-      fetch("item/#{id}.json", requests, ->parse_item(String)) do |result|
-        @cache[id] = result if result.is_a?(Item)
-        callback.call(result)
-      end
+      fetch("item/#{id}.json", requests, ->parse_item(String), &callback)
     end
 
     private def fetch(path : String, requests : HTTP::RequestGroup, decode : String -> T,
                       &callback : T | Failure -> Nil) : Nil forall T
       return if requests.cancelled?
 
-      request = @transport.get("#{@base_url}/#{path}") do |response|
+      key = "#{@base_url}/#{path}"
+      if body = @cache.read(key)
+        cached = decode.call(body)
+        unless cached.is_a?(Failure)
+          callback.call(cached)
+          return
+        end
+      end
+
+      generation = @cache_generation
+      request = @transport.get(key) do |response|
         next if requests.cancelled?
 
         result = case response
                  in String  then decode.call(response)
                  in Failure then response
                  end
+        @cache.write(key, response) if generation == @cache_generation && response.is_a?(String) && !result.is_a?(Failure)
         callback.call(result)
       end
       requests.add(request)
