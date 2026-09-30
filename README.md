@@ -114,6 +114,10 @@ uninstalling.
 - Select a feed in the header. Feeds, stories and comments are cached for five
   minutes, including across app restarts. **Refresh** clears the cache and reloads
   the feed; **Load More** fetches the next 30 entries in Hacker News order.
+- The current feed is checked for new posts after loading and every minute. A
+  banner shows how many new posts are available; click **Show** to reload the
+  feed from the top. Background checks leave your list and reading position
+  unchanged. Ranking changes alone do not trigger the banner.
 - Open a story to switch to its own screen. **Article** displays the original
   website; **Discussion** displays the post text and native comment widgets.
   Posts without an external link open directly in Discussion.

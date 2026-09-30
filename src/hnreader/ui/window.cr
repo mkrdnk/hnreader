@@ -71,6 +71,7 @@ module HNReader::UI
       @navigation.add_named(@story_view.widget, "story")
       content = Gtk::Box.new(Gtk::Orientation::Vertical, 0)
       content.append(header)
+      content.append(@feed_view.updates_banner)
       content.append(@navigation)
       @widget.content = content
     end
@@ -97,6 +98,7 @@ module HNReader::UI
       @back_button.visible = !visible
       @feed_view.selector.visible = visible
       @feed_view.refresh_button.visible = visible
+      @feed_view.updates_banner.visible = visible
     end
 
     private def open_external(url : String) : Nil

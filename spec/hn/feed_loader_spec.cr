@@ -120,3 +120,84 @@ describe "FeedLoader caching" do
     loader.loading?.should be_false
   end
 end
+
+describe "Feed update checks" do
+  it "counts new IDs without replacing the list, changing pagination or updating the feed cache" do
+    transport = SpecSupport::FakeTransport.new
+    client = HNReader::HN::Client.new(transport)
+    loader = HNReader::HN::FeedLoader.new(client) { }
+    loader.select_feed(HNReader::HN::Feed::Top)
+    transport.reply("topstories.json", (1..31).to_a.to_json)
+    (1..30).each { |id| transport.reply("item/#{id}.json", SpecSupport.story(id)) }
+
+    loader.check_for_updates
+    loader.check_for_updates
+    transport.pending.size.should eq(1)
+    loader.checking_updates?.should be_true
+    transport.reply("topstories.json", "[32,32,31,1,2]")
+    loader.new_posts_count.should eq(1)
+    loader.checking_updates?.should be_false
+    loader.items.map(&.id).should eq((1_i64..30_i64).to_a)
+    loader.has_more?.should be_true
+    client.feed(HNReader::HN::Feed::Top, HNReader::HTTP::RequestGroup.new) do |result|
+      result.should eq((1_i64..31_i64).to_a)
+    end
+    transport.pending.should be_empty
+
+    loader.check_for_updates
+    transport.reply("topstories.json", "[31,2,1]")
+    loader.new_posts_count.should eq(0)
+  end
+
+  it "keeps the current count and visible content on polling errors, then retries" do
+    transport = SpecSupport::FakeTransport.new
+    loader = HNReader::HN::FeedLoader.new(HNReader::HN::Client.new(transport)) { }
+    loader.select_feed(HNReader::HN::Feed::Top)
+    transport.reply("topstories.json", "[]")
+    loader.check_for_updates
+    transport.reply("topstories.json", "[1]")
+    loader.new_posts_count.should eq(1)
+    loader.check_for_updates
+    transport.reply("topstories.json", HNReader::Failure.new("Offline"))
+    loader.new_posts_count.should eq(1)
+    loader.error.should be_nil
+    loader.checking_updates?.should be_false
+    loader.loading?.should be_false
+    loader.check_for_updates
+    transport.reply("topstories.json", "[1,2]")
+    loader.new_posts_count.should eq(2)
+  end
+
+  it "ignores late checks when switching feeds, refreshing or closing" do
+    transport = SpecSupport::FakeTransport.new
+    loader = HNReader::HN::FeedLoader.new(HNReader::HN::Client.new(transport)) { }
+    loader.check_for_updates
+    transport.pending.should be_empty
+    loader.select_feed(HNReader::HN::Feed::Top)
+    loader.check_for_updates
+    transport.pending.size.should eq(1)
+    transport.reply("topstories.json", "[]")
+    loader.check_for_updates
+    old = transport.pending.first.request
+    loader.select_feed(HNReader::HN::Feed::New)
+    old.cancelled?.should be_true
+    transport.reply("topstories.json", "[1]")
+    transport.reply("newstories.json", "[]")
+    loader.new_posts_count.should eq(0)
+
+    loader.check_for_updates
+    transport.reply("newstories.json", "[1]")
+    loader.new_posts_count.should eq(1)
+    loader.check_for_updates
+    loader.select_feed(HNReader::HN::Feed::New, refresh: true)
+    transport.reply("newstories.json", "[1,2]") # Cancelled check.
+    loader.new_posts_count.should eq(0)
+    transport.reply("newstories.json", "[]")
+    loader.check_for_updates
+    loader.cancel
+    transport.reply("newstories.json", "[3]")
+    loader.new_posts_count.should eq(0)
+    loader.check_for_updates
+    transport.pending.should be_empty
+  end
+end

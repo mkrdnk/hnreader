@@ -18,20 +18,20 @@ module HNReader::HN
       @cache.clear
     end
 
-    def feed(feed : Feed, requests : HTTP::RequestGroup, &callback : Array(Int64) | Failure -> Nil) : Nil
-      fetch(feed.endpoint, requests, ->parse_feed(String), &callback)
+    def feed(feed : Feed, requests : HTTP::RequestGroup, use_cache : Bool = true, &callback : Array(Int64) | Failure -> Nil) : Nil
+      fetch(feed.endpoint, requests, ->parse_feed(String), use_cache, &callback)
     end
 
     def item(id : Int64, requests : HTTP::RequestGroup, &callback : Item? | Failure -> Nil) : Nil
       fetch("item/#{id}.json", requests, ->parse_item(String), &callback)
     end
 
-    private def fetch(path : String, requests : HTTP::RequestGroup, decode : String -> T,
+    private def fetch(path : String, requests : HTTP::RequestGroup, decode : String -> T, use_cache : Bool = true,
                       &callback : T | Failure -> Nil) : Nil forall T
       return if requests.cancelled?
 
       key = "#{@base_url}/#{path}"
-      if body = @cache.read(key)
+      if body = use_cache ? @cache.read(key) : nil
         cached = decode.call(body)
         unless cached.is_a?(Failure)
           callback.call(cached)
@@ -47,7 +47,7 @@ module HNReader::HN
                  in String  then decode.call(response)
                  in Failure then response
                  end
-        @cache.write(key, response) if generation == @cache_generation && response.is_a?(String) && !result.is_a?(Failure)
+        @cache.write(key, response) if generation == @cache_generation && use_cache && response.is_a?(String) && !result.is_a?(Failure)
         callback.call(result)
       end
       requests.add(request)
