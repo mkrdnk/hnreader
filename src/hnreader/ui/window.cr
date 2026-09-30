@@ -58,6 +58,7 @@ module HNReader::UI
       )
       header.pack_start(@back_button)
       header.pack_start(@feed_view.selector)
+      header.pack_end(Widgets.icon_button("help-about-symbolic", "About HN Reader") { show_about })
       header.pack_end(Widgets.icon_button("emblem-system-symbolic", "Settings") do
         Settings.new(@theme).widget.present(@widget)
       end)
@@ -69,6 +70,24 @@ module HNReader::UI
       content.append(header)
       content.append(@navigation)
       @widget.content = content
+    end
+
+    private def show_about : Nil
+      dialog = Adw::AboutDialog.new(
+        application_name: APPLICATION_NAME,
+        application_icon: APPLICATION_ID,
+        version: VERSION,
+        comments: "A native GNOME reader for Hacker News. Browse feeds, read discussions, and view articles in an embedded browser.",
+        license_type: Gtk::License::Gpl30Only,
+      )
+      dialog.add_link("GitHub", "https://github.com/mkrdnk/hnreader")
+      dialog.add_link("Hacker News", "https://news.ycombinator.com/")
+      dialog.add_link("Author", "https://makridenko.com/")
+      dialog.activate_link_signal.connect do |url|
+        open_external(url)
+        true
+      end
+      dialog.present(@widget)
     end
 
     private def show_feed_controls(visible : Bool) : Nil
