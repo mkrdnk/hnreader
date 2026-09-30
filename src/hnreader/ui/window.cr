@@ -1,6 +1,7 @@
 require "../constants"
 require "./feed_view"
 require "./story_view"
+require "./settings"
 
 module HNReader::UI
   class Window
@@ -13,6 +14,7 @@ module HNReader::UI
     @feed_view : FeedView
     @story_view : StoryView
     @back_button : Gtk::Button
+    @theme : Theme
 
     def initialize(application : Adw::Application, client : HN::Client)
       @widget = Adw::ApplicationWindow.new(
@@ -21,6 +23,8 @@ module HNReader::UI
         default_width: 960,
         default_height: 760,
       )
+      @theme = Theme.new
+      Settings.install_styles
       @feed_view = FeedView.new(client) { |item| show_story(item) }
       @story_view = StoryView.new(client) { |url| open_external(url) }
       @back_button = Widgets.icon_button("go-previous-symbolic", "Back to feed") { show_feed }
@@ -54,6 +58,9 @@ module HNReader::UI
       )
       header.pack_start(@back_button)
       header.pack_start(@feed_view.selector)
+      header.pack_end(Widgets.icon_button("emblem-system-symbolic", "Settings") do
+        Settings.new(@theme).widget.present(@widget)
+      end)
       header.pack_end(@feed_view.refresh_button)
 
       @navigation.add_named(@feed_view.widget, "feed")

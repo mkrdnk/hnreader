@@ -1,0 +1,86 @@
+require "./theme"
+require "./widgets"
+
+module HNReader::UI
+  class Settings
+    getter widget : Adw::Dialog
+    @buttons = {} of Theme::Mode => Gtk::ToggleButton
+    @updating = false
+
+    def initialize(@theme : Theme)
+      @widget = Adw::Dialog.new(title: "Settings", content_width: 380, content_height: 250)
+      content = Gtk::Box.new(Gtk::Orientation::Vertical, 0)
+      content.append(Adw::HeaderBar.new)
+      body = Gtk::Box.new(Gtk::Orientation::Vertical, 16)
+      Widgets.margins(body, 24)
+      body.append(Widgets.label("Appearance", "title-3"))
+      choices = Gtk::Box.new(orientation: Gtk::Orientation::Horizontal, spacing: 14, halign: Gtk::Align::Center)
+      error_label = Widgets.label("", "error")
+      error_label.visible = false
+
+      Theme::Mode.each do |mode|
+        column = Gtk::Box.new(Gtk::Orientation::Vertical, 8)
+        button = Gtk::ToggleButton.new(
+          tooltip_text: mode.system? ? "Follow system appearance" : "#{mode} theme",
+          css_classes: ["theme-swatch", "theme-#{mode.to_s.downcase}"],
+          width_request: 56, height_request: 56,
+        )
+        check = Gtk::Image.new(icon_name: "object-select-symbolic", halign: Gtk::Align::End, valign: Gtk::Align::End,
+          css_classes: ["theme-check"])
+        button.child = check
+        button.active = mode == @theme.mode
+        @buttons[mode] = button
+        button.toggled_signal.connect do
+          unless @updating
+            begin
+              @theme.select(mode) if button.active?
+              error_label.visible = false
+            rescue error : File::Error
+              error_label.label = "Could not save theme. Check configuration folder permissions."
+              error_label.visible = true
+            end
+            sync_buttons
+          end
+        end
+        column.append(button)
+        column.append(Gtk::Label.new(label: mode.to_s, css_classes: ["caption"]))
+        choices.append(column)
+      end
+      body.append(choices)
+      body.append(error_label)
+      content.append(body)
+      @widget.child = content
+    end
+
+    def self.install_styles : Nil
+      provider = Gtk::CssProvider.new
+      provider.load_from_string(<<-CSS)
+        button.theme-swatch {
+          border-radius: 999px;
+          min-width: 52px;
+          min-height: 52px;
+          padding: 0;
+          border: 2px solid alpha(currentColor, 0.25);
+          box-shadow: none;
+        }
+        button.theme-system { background: linear-gradient(135deg, #ffffff 49.5%, #2c2c2c 50.5%); }
+        button.theme-light { background: #ffffff; }
+        button.theme-sepia { background: #f1e9dc; }
+        button.theme-dark { background: #2c2c2c; }
+        button.theme-swatch:checked { border-color: @accent_bg_color; }
+        button.theme-swatch:focus-visible { outline: 2px solid @accent_bg_color; outline-offset: 4px; }
+        .theme-check { opacity: 0; border-radius: 999px; padding: 2px; background: @accent_bg_color; color: @accent_fg_color; }
+        :checked > .theme-check { opacity: 1; }
+      CSS
+      if display = Gdk::Display.default
+        Gtk::StyleContext.add_provider_for_display(display, provider, 600_u32)
+      end
+    end
+
+    private def sync_buttons : Nil
+      @updating = true
+      @buttons.each { |mode, button| button.active = mode == @theme.mode }
+      @updating = false
+    end
+  end
+end

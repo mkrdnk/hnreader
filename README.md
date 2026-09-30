@@ -53,6 +53,10 @@ This installs the binary, desktop entry and icon under `~/.local`. Ensure
 
 ## Using the reader
 
+- Open **Settings** in the header to choose System, Light, Sepia or Dark appearance.
+  Changes apply immediately and are saved in `$XDG_CONFIG_HOME/hnreader/theme`
+  (by default `~/.config/hnreader/theme`). External articles retain their website styling.
+
 - Select a feed in the header. Refresh reloads it; **Load More** fetches the next
   30 entries in Hacker News order.
 - Open a story to switch to its own screen. **Article** displays the original
