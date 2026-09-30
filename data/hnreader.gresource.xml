@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/makridenko/hnreader/icons">
+    <file alias="scalable/apps/hnreader.makridenko.com.svg">hnreader.makridenko.com.svg</file>
+  </gresource>
+</gresources>

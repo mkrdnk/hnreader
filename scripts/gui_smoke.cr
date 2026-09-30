@@ -20,6 +20,7 @@ module HNReader::Testing
       BackToFeed
       NarrowLayout
       Settings
+      About
       ServerStats
     end
 
@@ -78,6 +79,7 @@ module HNReader::Testing
       in .back_to_feed?  then check_back_to_feed
       in .narrow_layout? then check_narrow_layout
       in .settings?      then check_settings
+      in .about?         then check_about
       in .server_stats?
         # The async stats request completes the test.
       end
@@ -226,6 +228,26 @@ module HNReader::Testing
       check(Preferences.new.default_feed == HN::Feed::Best, "Startup feed selection was not saved")
       check(window.feed_view.loader.feed == current_feed, "Startup setting changed the current feed")
       @settings.not_nil!.widget.close
+      about_button = widgets(window.widget).compact_map(&.as?(Gtk::Button)).find do |button|
+        button.tooltip_text == "About HN Reader"
+      end.not_nil!
+      about_button.clicked_signal.emit
+      @ticks = 0
+      @step = Step::About
+    end
+
+    private def check_about : Nil
+      return if @ticks < 5
+      dialog = window.widget.visible_dialog.as(Adw::AboutDialog)
+      check(dialog.application_icon == APPLICATION_ID, "About dialog has the wrong icon")
+      # Ignore installed icon directories to verify the embedded fallback independently.
+      theme = Gtk::IconTheme.new(display: Gdk::Display.default, theme_name: "hicolor")
+      theme.search_path = [ENV["XDG_CONFIG_HOME"]]
+      theme.add_resource_path("/com/makridenko/hnreader/icons")
+      check(theme.has_icon(APPLICATION_ID), "Embedded application icon is missing")
+      icon = theme.lookup_icon(APPLICATION_ID, nil, 128, 1, Gtk::TextDirection::Ltr, Gtk::IconLookupFlags::None)
+      check(icon.file.not_nil!.uri.starts_with?("resource:///"), "Application icon was not embedded")
+      return unless capture("06-about-icon")
       @step = Step::ServerStats
       HTTP::SoupTransport.new.get("#{@base_url}/stats") do |response|
         begin

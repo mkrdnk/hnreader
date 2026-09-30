@@ -2,6 +2,7 @@ require "../constants"
 require "./feed_view"
 require "./story_view"
 require "./settings"
+require "./icons"
 
 module HNReader::UI
   class Window
@@ -18,6 +19,7 @@ module HNReader::UI
     @preferences = Preferences.new
 
     def initialize(application : Adw::Application, client : HN::Client)
+      Icons.install
       @widget = Adw::ApplicationWindow.new(
         application: application,
         title: APPLICATION_NAME,

@@ -70,6 +70,9 @@ make install
 
 This installs the binary, desktop entry and icon under `~/.local`. Ensure
 `~/.local/bin` is on your desktop session's `PATH`. No Flatpak package is included.
+Installation also refreshes the icon cache. The application embeds its icon at
+build time, so the About dialog displays it even when running an uninstalled binary.
+Building requires `glib-compile-resources`; installing requires `gtk-update-icon-cache`.
 
 ## Using the reader
 
