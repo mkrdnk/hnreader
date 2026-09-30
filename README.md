@@ -107,9 +107,13 @@ uninstalling.
 
 - Open **Settings** in the header to choose System, Light, Sepia or Dark appearance.
   Changes apply immediately and are saved in `$XDG_CONFIG_HOME/hnreader/theme`
-  (by default `~/.config/hnreader/theme`). External articles retain their website styling.
+  (by default `~/.config/hnreader/theme`). The native reading view follows this
+  appearance; original websites retain their own styling.
 - In **Settings → Startup**, choose the default feed (Top, New, Best, Ask, Show or Jobs).
   It opens on the next launch; Top is used until you choose another feed.
+- In **Settings → Reading**, disable Reader mode to open original websites by
+  default. Reader mode is enabled by default and the choice is saved in
+  `$XDG_CONFIG_HOME/hnreader/reader-mode`.
 - In **Settings → Cache**, click **Clear cache** to remove saved feeds, stories
   and comments from memory and disk. Settings and the currently displayed content
   are preserved; subsequent requests load fresh data.
@@ -123,9 +127,12 @@ uninstalling.
   banner shows how many new posts are available; click **Show** to reload the
   feed from the top. Background checks leave your list and reading position
   unchanged. Ranking changes alone do not trigger the banner.
-- Open a story to switch to its own screen. **Article** displays the original
-  website; **Discussion** displays the post text and native comment widgets.
-  Posts without an external link open directly in Discussion.
+- Open a story to switch to its own screen. **Article** extracts the main text
+  into a native, distraction-free reading view by default; use the **Reader**
+  toolbar toggle to switch between it and the original website. Pages that
+  cannot be extracted fall back to the website. **Discussion** displays the post
+  text and native comment widgets. Posts without an external link open directly
+  in Discussion.
 - Expand a comment's replies to load them. Each level is paginated independently.
 - Use the bookmark buttons to save an article or comment, or to remove it from
   saved items. Open **Saved items** from the header to browse all bookmarks;
