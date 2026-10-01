@@ -264,7 +264,7 @@ module HNReader::Testing
       # Ignore installed icon directories to verify the embedded fallback independently.
       theme = Gtk::IconTheme.new(display: Gdk::Display.default, theme_name: "hicolor")
       theme.search_path = [ENV["XDG_CONFIG_HOME"]]
-      theme.add_resource_path("/com/makridenko/hnreader/icons")
+      theme.add_resource_path("/com/makridenko/HNReader/icons")
       check(theme.has_icon(APPLICATION_ID), "Embedded application icon is missing")
       icon = theme.lookup_icon(APPLICATION_ID, nil, 128, 1, Gtk::TextDirection::Ltr, Gtk::IconLookupFlags::None)
       check(icon.file.not_nil!.uri.starts_with?("resource:///"), "Application icon was not embedded")

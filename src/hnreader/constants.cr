@@ -1,5 +1,5 @@
 module HNReader
-  APPLICATION_ID   = "hnreader.makridenko.com"
+  APPLICATION_ID   = "com.makridenko.HNReader"
   APPLICATION_NAME = "HN Reader"
   VERSION          = {{ read_file("#{__DIR__}/../../shard.yml").lines.find(&.starts_with?("version:")).split(":")[1].strip }}
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/com/makridenko/hnreader/icons">
-    <file alias="scalable/apps/hnreader.makridenko.com.svg">hnreader.makridenko.com.svg</file>
+  <gresource prefix="/com/makridenko/HNReader/icons">
+    <file alias="scalable/apps/com.makridenko.HNReader.svg">com.makridenko.HNReader.svg</file>
   </gresource>
 </gresources>

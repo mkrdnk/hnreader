@@ -44,14 +44,14 @@ smoke: link-libraries resources
 
 install: build
 	install -Dm755 bin/hnreader $(DESTDIR)$(PREFIX)/bin/hnreader
-	install -Dm644 data/hnreader.makridenko.com.desktop $(DESTDIR)$(PREFIX)/share/applications/hnreader.makridenko.com.desktop
-	install -Dm644 data/hnreader.makridenko.com.svg $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/hnreader.makridenko.com.svg
+	install -Dm644 data/com.makridenko.HNReader.desktop $(DESTDIR)$(PREFIX)/share/applications/com.makridenko.HNReader.desktop
+	install -Dm644 data/com.makridenko.HNReader.svg $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/com.makridenko.HNReader.svg
 	gtk-update-icon-cache --force --ignore-theme-index "$(DESTDIR)$(PREFIX)/share/icons/hicolor"
 
 uninstall:
 	rm -f "$(DESTDIR)$(PREFIX)/bin/hnreader"
-	rm -f "$(DESTDIR)$(PREFIX)/share/applications/hnreader.makridenko.com.desktop"
-	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/hnreader.makridenko.com.svg"
+	rm -f "$(DESTDIR)$(PREFIX)/share/applications/com.makridenko.HNReader.desktop"
+	rm -f "$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/com.makridenko.HNReader.svg"
 	if [ -d "$(DESTDIR)$(PREFIX)/share/icons/hicolor" ]; then \
 		gtk-update-icon-cache --force --ignore-theme-index "$(DESTDIR)$(PREFIX)/share/icons/hicolor"; \
 	fi

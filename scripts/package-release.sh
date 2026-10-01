@@ -30,10 +30,10 @@ mkdir -p dist
 rm -rf "$release_dir"
 rm -f "dist/$archive" "dist/$archive.sha256"
 install -Dm755 bin/hnreader "$release_dir/bin/hnreader"
-install -Dm644 data/hnreader.makridenko.com.desktop \
-  "$release_dir/share/applications/hnreader.makridenko.com.desktop"
-install -Dm644 data/hnreader.makridenko.com.svg \
-  "$release_dir/share/icons/hicolor/scalable/apps/hnreader.makridenko.com.svg"
+install -Dm644 data/com.makridenko.HNReader.desktop \
+  "$release_dir/share/applications/com.makridenko.HNReader.desktop"
+install -Dm644 data/com.makridenko.HNReader.svg \
+  "$release_dir/share/icons/hicolor/scalable/apps/com.makridenko.HNReader.svg"
 install -m644 LICENSE README.md "$release_dir/"
 
 tar -czf "dist/$archive" -C dist "$release_name"

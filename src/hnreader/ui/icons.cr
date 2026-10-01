@@ -14,7 +14,7 @@ module HNReader::UI
         @@resource = resource
       end
       if display = Gdk::Display.default
-        Gtk::IconTheme.for_display(display).add_resource_path("/com/makridenko/hnreader/icons")
+        Gtk::IconTheme.for_display(display).add_resource_path("/com/makridenko/HNReader/icons")
       end
       Gtk::Window.default_icon_name = APPLICATION_ID
     end
