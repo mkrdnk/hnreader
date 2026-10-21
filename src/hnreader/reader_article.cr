@@ -1,10 +1,11 @@
 require "xml"
+require "./html_content"
 
 module HNReader
   class ReaderArticle
     MIN_CONTENT_LENGTH = 200
     POSITIVE_HINT      = /article|body|content|entry|main|post|story/i
-    NEGATIVE_HINT      = /ad-|advert|comment|footer|header|menu|nav|promo|related|share|sidebar|social/i
+    NEGATIVE_HINT      = /(?:\A|[\s_-])(?:ad|ads|advert|advertisement|advertising|comment|comments|footer|header|menu|nav|navigation|promo|related|share|sidebar|social)(?:\z|[\s_-])/i
     PARSER_OPTIONS     = XML::HTMLParserOptions::RECOVER |
                          XML::HTMLParserOptions::NOERROR |
                          XML::HTMLParserOptions::NOWARNING |
@@ -32,9 +33,15 @@ module HNReader
       return if html.empty?
 
       document = XML.parse_html(html, PARSER_OPTIONS)
+      body = document.xpath_node("//body")
+      return unless body
+      # Keep original ordinals when cleaning removes siblings or blocks split the list.
+      preserve_list_numbers(body)
+      remove_service_content(body)
+      HTMLContent.clean(body)
+
       candidate = primary_candidate(document) || fallback_candidate(document) || body_candidate(document)
       return unless candidate
-      return if text(candidate).size < MIN_CONTENT_LENGTH
 
       heading = candidate.xpath_node(".//h1")
       title = metadata(document, "//meta[@property='og:title']/@content") ||
@@ -42,7 +49,9 @@ module HNReader
               node_text(document.xpath_node("//title")) ||
               "Article"
       heading.try(&.unlink)
-      content = candidate.to_xml
+      return if text(candidate).size < MIN_CONTENT_LENGTH
+
+      content = candidate.to_xml(options: XML::SaveOptions::AS_XML)
       blocks = [] of Block
       collect_blocks(candidate, blocks)
       return if blocks.empty?
@@ -93,15 +102,37 @@ module HNReader
       node.xpath_nodes(".//a").sum { |link| text(link).size }
     end
 
+    private def self.remove_service_content(node : XML::Node) : Nil
+      node.children.to_a.each do |child|
+        next unless child.element?
+
+        hint = "#{child["id"]?} #{child["class"]?}"
+        if hint.matches?(NEGATIVE_HINT)
+          child.unlink
+        else
+          remove_service_content(child)
+        end
+      end
+    end
+
+    private def self.preserve_list_numbers(node : XML::Node) : Nil
+      node.xpath_nodes(".//ol").each do |list|
+        items = list.children.select { |child| child.element? && child.name.downcase == "li" }
+        reversed = !list["reversed"]?.nil?
+        number = (list["start"]?.try(&.to_i?) || (reversed ? items.size : 1)).to_i64
+        step = reversed ? -1 : 1
+        items.each do |item|
+          number = item["value"]?.try(&.to_i?).try(&.to_i64) || number
+          item["value"] = number.to_s
+          number += step
+        end
+      end
+    end
+
     private def self.collect_blocks(node : XML::Node, blocks : Array(Block)) : Nil
       return unless node.element?
 
       name = node.name.downcase
-      return if {"script", "style", "iframe", "object", "nav", "header", "footer", "aside",
-                 "form", "button", "noscript", "svg", "canvas"}.includes?(name)
-      hint = "#{node["id"]?} #{node["class"]?}"
-      return if hint.matches?(NEGATIVE_HINT)
-
       kind = case name
              when "p"                                then BlockKind::Paragraph
              when "h1", "h2", "h3", "h4", "h5", "h6" then BlockKind::Heading
@@ -111,14 +142,20 @@ module HNReader
              when "tr"                               then BlockKind::TableRow
              end
       if kind
-        blocks << Block.new(kind, node.to_xml) unless text(node).empty?
+        unless text(node).empty?
+          html = node.to_xml(options: XML::SaveOptions::AS_XML)
+          if name == "li" && node.parent.try(&.name.downcase) == "ol"
+            html = %(<ol start="#{node["value"]}">#{html}</ol>)
+          end
+          blocks << Block.new(kind, html)
+        end
         return
       end
 
       children = node.children.select(&.element?)
       descendants = node.xpath_nodes(".//p | .//h1 | .//h2 | .//h3 | .//h4 | .//h5 | .//h6 | .//blockquote | .//pre | .//li | .//tr")
       if descendants.empty?
-        blocks << Block.new(BlockKind::Paragraph, node.to_xml) unless text(node).empty?
+        blocks << Block.new(BlockKind::Paragraph, node.to_xml(options: XML::SaveOptions::AS_XML)) unless text(node).empty?
       else
         children.each { |child| collect_blocks(child, blocks) }
       end
@@ -129,11 +166,11 @@ module HNReader
     end
 
     private def self.node_text(node : XML::Node?) : String?
-      node.try { |value| clean(value.content).presence }
+      node.try { |value| text(value).presence }
     end
 
     private def self.text(node : XML::Node) : String
-      clean(node.content)
+      HTMLContent.text(node)
     end
 
     private def self.clean(value : String) : String

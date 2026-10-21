@@ -175,6 +175,13 @@ module HNReader::Testing
       check(reader_labels.size >= 5, "Reader content was not split into native blocks")
       reader_text = reader_labels.map(&.label).join(" ")
       check(reader_text.includes?("native reader extracts the main article"), "Native reader content missing")
+      check(reader_labels.any? { |label| label.label == "1. <b>Check</b>\nSee what your public record says." },
+        "Reader step has extra whitespace or a decorative number")
+      check(reader_labels.any? { |label| label.label == "2. <b>Watch</b>\nAn email before it expires." },
+        "Reader lost ordered list numbering between blocks")
+      check(reader_labels.none? { |label| label.label.strip.empty? }, "Reader contains an empty block")
+      check(!reader_text.includes?("/empty"), "Reader contains an empty link")
+      check(reader_text.includes?("  first line\n    second line\n"), "Reader lost code indentation")
       check(article.reader_button.active?, "Reader mode was not enabled by default")
       return unless capture("02-article")
       web.load_uri("#{@base_url}/second")

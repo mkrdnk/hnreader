@@ -133,6 +133,10 @@ uninstalling.
   cannot be extracted fall back to the website. **Discussion** displays the post
   text and native comment widgets. Posts without an external link open directly
   in Discussion.
+- Reader mode removes hidden and service content, preserves numbered lists and
+  preformatted code, and omits links without text. Pages with too little readable
+  text after cleanup open as websites instead; image galleries and content loaded
+  only by JavaScript are not extracted into the native reader.
 - Expand a comment's replies to load them. Each level is paginated independently.
 - Opened stories have dimmed titles in feeds and saved items. Enable **Only unread**
   in the feed to hide them; **Load More** still searches the next page of the feed.

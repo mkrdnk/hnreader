@@ -41,6 +41,12 @@ class Handler(BaseHTTPRequestHandler):
                     b"instead of a navigation shell, while remaining deterministic "
                     b"and independent from the Internet.</p>"
                     b"<p><a href='/second'>Continue reading</a></p>"
+                    b"<ol>\n<li><span aria-hidden='true'>1</span>\n"
+                    b"<h3>Check</h3>\n<p>See what your public record says.</p></li>\n"
+                    b"<li><span aria-hidden='true'>2</span>\n"
+                    b"<h3>Watch</h3>\n<p>An email before it expires.</p></li></ol>"
+                    b"<p><a href='/empty'>\n <svg><title>Icon</title></svg>\n </a></p>"
+                    b"<pre><code>  first line\n    second line\n</code></pre>"
                     + (
                         b"<p>A long article paragraph for repeatable reading position tests. "
                         b"The native reader and original website have independent layouts.</p>"
