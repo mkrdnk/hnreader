@@ -1,4 +1,5 @@
 require "../hn/feed_loader"
+require "../reading_history"
 require "./formatting"
 require "./widgets"
 
@@ -8,6 +9,7 @@ module HNReader::UI
     getter selector : Gtk::DropDown
     getter refresh_button : Gtk::Button
     getter updates_banner = Adw::Banner.new(title: "New posts available", button_label: "Show", revealed: false)
+    getter unread_only = Gtk::CheckButton.new(label: "Only unread")
 
     @loader : HN::FeedLoader
     @list = Gtk::ListBox.new(selection_mode: Gtk::SelectionMode::None, css_classes: ["boxed-list"])
@@ -19,8 +21,11 @@ module HNReader::UI
     @closed = false
     @check_after_load = true
     @update_timer : UInt32?
+    @titles = {} of Int64 => Gtk::Label
+    @unread_buttons = {} of Int64 => Gtk::Button
 
-    def initialize(client : HN::Client, initial_feed : HN::Feed = HN::Feed::Top, &on_selected : HN::Item -> Nil)
+    def initialize(client : HN::Client, initial_feed : HN::Feed = HN::Feed::Top,
+                   @history : ReadingHistory = ReadingHistory.new, &on_selected : HN::Item -> Nil)
       @loader = HN::FeedLoader.new(client) { update }
       @more_button = Widgets.button("Load More") { @loader.load_more }
       @refresh_button = Widgets.icon_button("view-refresh-symbolic", "Refresh feed") do
@@ -38,10 +43,12 @@ module HNReader::UI
         @loader.select_feed(HN::Feed.values[@selector.selected.to_i])
       end
       @list.row_activated_signal.connect do |row|
-        if item = @loader.items[row.index]?
+        if id = @rendered_ids[row.index]?
+          item = @loader.items.find { |story| story.id == id }.not_nil!
           on_selected.call(item)
         end
       end
+      @unread_only.toggled_signal.connect { update }
 
       build
       connect_scroll_restoration
@@ -59,6 +66,18 @@ module HNReader::UI
       @scroll_position = @widget.vadjustment.value
     end
 
+    def refresh_read_state : Nil
+      update
+      @titles.each do |id, title|
+        if @history.read?(id)
+          title.add_css_class("dim-label")
+        else
+          title.remove_css_class("dim-label")
+        end
+        @unread_buttons[id].visible = @history.read?(id)
+      end
+    end
+
     def close : Nil
       @closed = true
       @loader.cancel
@@ -73,6 +92,7 @@ module HNReader::UI
       Widgets.margins(content)
       content.append(Widgets.label("Hacker News", "title-1"))
       content.append(Widgets.label("Stories and conversations from the community.", "dim-label"))
+      content.append(@unread_only)
 
       @more_button.halign = Gtk::Align::Center
       {@list, @spinner, @status, @more_button}.each { |child| content.append(child) }
@@ -117,12 +137,16 @@ module HNReader::UI
         return error
       end
       return "No stories found." if @loader.items.empty? && !@loader.loading?
+      if @unread_only.active? && @rendered_ids.empty? && !@loader.loading?
+        return @loader.has_more? ? "No unread stories in loaded posts. Load more to keep looking." : "No unread stories."
+      end
 
       ""
     end
 
     private def update_rows : Nil
-      ids = @loader.items.map(&.id)
+      items = @loader.items.reject { |item| @unread_only.active? && @history.read?(item.id) }
+      ids = items.map(&.id)
       return if ids == @rendered_ids
 
       if ids[0, @rendered_ids.size] != @rendered_ids
@@ -130,15 +154,29 @@ module HNReader::UI
           @list.remove(child)
         end
         @rendered_ids.clear
+        @titles.clear
+        @unread_buttons.clear
       end
-      @loader.items.skip(@rendered_ids.size).each { |item| append_story(item) }
+      items.skip(@rendered_ids.size).each { |item| append_story(item) }
       @rendered_ids = ids
     end
 
     private def append_story(item : HN::Item) : Nil
       content = Gtk::Box.new(Gtk::Orientation::Vertical, 7)
       Widgets.margins(content, 16)
-      content.append(Widgets.label(item.title, "heading"))
+      heading = Gtk::Box.new(Gtk::Orientation::Horizontal, 8)
+      title = Widgets.label(item.title, "heading")
+      title.add_css_class("dim-label") if @history.read?(item.id)
+      @titles[item.id] = title
+      heading.append(title)
+      unread = Widgets.icon_button("mail-unread-symbolic", "Mark as unread") do
+        @history.story(item.id).read = false
+        refresh_read_state
+      end
+      unread.visible = @history.read?(item.id)
+      @unread_buttons[item.id] = unread
+      heading.append(unread)
+      content.append(heading)
       if url = item.url
         content.append(Widgets.label(Formatting.domain(url), "caption"))
       end

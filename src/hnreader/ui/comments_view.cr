@@ -1,5 +1,6 @@
 require "../hn/item_batch"
 require "../saved_items"
+require "../reading_history"
 require "./formatting"
 require "./widgets"
 
@@ -17,9 +18,13 @@ module HNReader::UI
     @loading = false
     @loaded = false
     @children = [] of CommentsView
+    @expanded_children = [] of CommentsView
+    @restore_count : Int32
 
     def initialize(@client : HN::Client, @ids : Array(Int64), @requests : HTTP::RequestGroup,
-                   @depth : Int32, @saved : SavedItems, &@open_link : String -> Nil)
+                   @depth : Int32, @saved : SavedItems, @reading : ReadingState,
+                   @parent_id : Int64, &@open_link : String -> Nil)
+      @restore_count = Math.min(@ids.size, Math.max(PAGE_SIZE, @reading.loaded_count(@parent_id)))
       @more = Widgets.button("Load More") { load_more }
       @more.halign = Gtk::Align::Center
       {@rows, @status, @more}.each { |child| @widget.append(child) }
@@ -28,6 +33,10 @@ module HNReader::UI
 
     def load : Nil
       load_more unless @loaded || @loading
+    end
+
+    def restored? : Bool
+      @loaded && !@loading && @offset >= @restore_count && @expanded_children.all?(&.restored?)
     end
 
     private def load_more : Nil
@@ -50,10 +59,12 @@ module HNReader::UI
           @loaded = true
           result.each { |item| append(item) }
           @offset += ids.size
+          @reading.remember_loaded(@parent_id, @offset)
           @status.label = "No comments yet."
           @status.visible = @offset == 0
           @more.label = "Load More"
           @more.visible = @offset < @ids.size
+          load_more if @offset < @restore_count
         end
       end
     end
@@ -80,15 +91,23 @@ module HNReader::UI
       unless item.kids.empty?
         label = item.kids.size == 1 ? "1 reply" : "#{item.kids.size} replies"
         expander = Gtk::Expander.new(label)
-        child = CommentsView.new(@client, item.kids, @requests, @depth + 1, @saved, &@open_link)
+        child = CommentsView.new(@client, item.kids, @requests, @depth + 1, @saved, @reading, item.id, &@open_link)
         # Keep deeper threads readable instead of narrowing without limit.
         child.widget.margin_start = @depth < 3 ? 12 : 0
         expander.child = child.widget
         expander.notify_signal["expanded"].connect do
-          child.load if expander.expanded
+          @reading.expand(item.id, expander.expanded)
+          if expander.expanded
+            @expanded_children << child unless @expanded_children.includes?(child)
+            child.load
+          else
+            @expanded_children.delete(child)
+          end
+          nil
         end
         @children << child
         box.append(expander)
+        expander.expanded = @reading.expanded?(item.id)
       end
       if @depth == 0
         card = Gtk::Box.new(orientation: Gtk::Orientation::Vertical, css_classes: ["card"])

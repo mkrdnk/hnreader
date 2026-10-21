@@ -1,5 +1,6 @@
 require "../hn/item_batch"
 require "../saved_items"
+require "../reading_history"
 require "../constants"
 require "./formatting"
 require "./widgets"
@@ -21,7 +22,8 @@ module HNReader::UI
     @loading = false
 
     def initialize(@client : HN::Client, @saved : SavedItems,
-                   @on_selected : HN::Item -> Nil, @open_link : String -> Nil)
+                   @on_selected : HN::Item -> Nil, @open_link : String -> Nil,
+                   @history : ReadingHistory = ReadingHistory.new)
       @more_button = Widgets.button("Load More") { load_more }
       @list.row_activated_signal.connect do |row|
         if item = @items[row.index]?
@@ -94,7 +96,9 @@ module HNReader::UI
           open_comment(item)
         end)
       else
-        heading.append(Widgets.label(item.title, "heading"))
+        title = Widgets.label(item.title, "heading")
+        title.add_css_class("dim-label") if @history.read?(item.id)
+        heading.append(title)
       end
       heading.append(Widgets.save_button(true, comment?(item) ? "comment" : "article") do
         remove(item, row)

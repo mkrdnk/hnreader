@@ -1,5 +1,6 @@
 require "../constants"
 require "../saved_items"
+require "../reading_history"
 require "./feed_view"
 require "./saved_view"
 require "./story_view"
@@ -21,9 +22,12 @@ module HNReader::UI
     @saved_button : Gtk::Button
     @theme : Theme
     @back_destination = "feed"
+    @history_timer : UInt32?
+    @history_warning = Adw::Banner.new(title: "Could not save reading progress. Changes will be retried.", revealed: false)
 
     def initialize(application : Adw::Application, @client : HN::Client,
-                   saved : SavedItems = SavedItems.new, @preferences : Preferences = Preferences.new)
+                   saved : SavedItems = SavedItems.new, @preferences : Preferences = Preferences.new,
+                   @history : ReadingHistory = ReadingHistory.new)
       Icons.install
       @widget = Adw::ApplicationWindow.new(
         application: application,
@@ -33,23 +37,33 @@ module HNReader::UI
       )
       @theme = Theme.new
       Settings.install_styles
-      @feed_view = FeedView.new(client, @preferences.default_feed) { |item| show_story(item) }
+      @feed_view = FeedView.new(client, @preferences.default_feed, @history) { |item| show_story(item) }
       @saved_view = SavedView.new(
         client,
         saved,
         ->(item : HN::Item) { show_story(item) },
-        ->(url : String) { open_external(url) }
+        ->(url : String) { open_external(url) },
+        @history
       )
-      @story_view = StoryView.new(client, saved, @preferences) { |url| open_external(url) }
+      @story_view = StoryView.new(client, saved, @preferences, @history) { |url| open_external(url) }
       @back_button = Widgets.icon_button("go-previous-symbolic", "Go back") { go_back }
       @saved_button = Widgets.icon_button("user-bookmarks-symbolic", "Saved items") { show_saved }
       @back_button.visible = false
 
       build
+      @history_timer = GLib.timeout_seconds(2_u32) do
+        save_history
+        true
+      end
       @widget.close_request_signal.connect do
         @feed_view.close
         @saved_view.close
         @story_view.close
+        save_history
+        if timer = @history_timer
+          GLib::Source.remove(timer)
+          @history_timer = nil
+        end
         false
       end
       @feed_view.load
@@ -65,6 +79,7 @@ module HNReader::UI
         @back_destination = "saved"
       end
       @story_view.show(item)
+      save_history
       @navigation.visible_child_name = "story"
       show_feed_controls(false)
     end
@@ -72,6 +87,8 @@ module HNReader::UI
     def show_feed : Nil
       @saved_view.close
       @story_view.close
+      save_history
+      @feed_view.refresh_read_state
       @navigation.visible_child_name = "feed"
       @back_destination = "feed"
       show_feed_controls(true)
@@ -79,6 +96,7 @@ module HNReader::UI
 
     def show_saved : Nil
       @story_view.close
+      save_history
       @saved_view.show
       @navigation.visible_child_name = "saved"
       @back_destination = "feed"
@@ -104,6 +122,7 @@ module HNReader::UI
       content = Gtk::Box.new(Gtk::Orientation::Vertical, 0)
       content.append(header)
       content.append(@feed_view.updates_banner)
+      content.append(@history_warning)
       content.append(@navigation)
       @widget.content = content
     end
@@ -114,6 +133,13 @@ module HNReader::UI
       else
         show_feed
       end
+    end
+
+    private def save_history : Nil
+      @history.flush
+      @history_warning.revealed = false
+    rescue error : File::Error
+      @history_warning.revealed = true
     end
 
     private def show_about : Nil

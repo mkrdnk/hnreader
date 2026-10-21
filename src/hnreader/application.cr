@@ -15,7 +15,15 @@ module HNReader
     end
 
     def run : Int32
-      @application.run
+      Application.run_main_loop(@application)
+    end
+
+    def self.run_main_loop(application : Gio::Application) : Int32
+      # gi-crystal's run wrapper moves the loop onto an isolated fiber stack.
+      # JavaScriptCore's UI-process VM scans/sanitizes the native thread stack;
+      # invoking it from that fiber can corrupt memory. Keep GTK/WebKit callbacks
+      # on the original main-thread stack. Networking uses async Soup, not fibers.
+      LibGio.g_application_run(application, ARGC_UNSAFE, ARGV_UNSAFE)
     end
 
     private def activate : Nil
