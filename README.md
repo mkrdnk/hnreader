@@ -134,6 +134,21 @@ uninstalling.
   text and native comment widgets. Posts without an external link open directly
   in Discussion.
 - Expand a comment's replies to load them. Each level is paginated independently.
+- Opened stories have dimmed titles in feeds and saved items. Enable **Only unread**
+  in the feed to hide them; **Load More** still searches the next page of the feed.
+  Use **Mark as unread** on a story's screen or the envelope button in the feed
+  to remove the read mark without deleting your reading position.
+- Reopening a story resumes its last **Article** or **Discussion** tab. Reading
+  positions are saved separately for the native reader, original website and
+  discussion. Expanded replies and loaded comment pages are restored before
+  scrolling the discussion into place. The Reader toggle is also remembered
+  for that story. Website offsets depend on the site's layout and may shift
+  when content changes or loads dynamically.
+- Reading history is stored locally in
+  `$XDG_DATA_HOME/hnreader/reading-history.json` (by default
+  `~/.local/share/hnreader/reading-history.json`). Updates are saved every two
+  seconds and when leaving a story or closing the window. **Clear cache** and
+  **Refresh** do not erase this history. Nothing is synced to Hacker News.
 - Use the bookmark buttons to save an article or comment, or to remove it from
   saved items. Open **Saved items** from the header to browse all bookmarks;
   articles can be opened from that list, and saved comments link to their
@@ -171,7 +186,9 @@ Makefile and can be overridden.
 
 The GUI test starts a temporary localhost HTTP server, opens a separate test
 window, exercises feeds, retry/pagination, comment expansion, WebKit history,
-scroll restoration and a narrow dark layout, then exits. Screenshots go to
+unread filtering, and recreates windows with fresh history stores to check
+native/website/discussion scroll restoration and deep, paginated reply expansion.
+It also checks a narrow dark layout, then exits. Screenshots go to
 `/tmp/hnreader-smoke` (override with `HN_SMOKE_OUTPUT`). It uses fixture data and
 does not contact Hacker News.
 
