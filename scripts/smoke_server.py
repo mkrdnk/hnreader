@@ -18,9 +18,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         global active, peak
+        api_request = self.path.startswith("/v0/")
         with lock:
-            active += 1
-            peak = max(peak, active)
+            # Soup's concurrency limit does not apply to WebKit resources.
+            if api_request:
+                active += 1
+                peak = max(peak, active)
             attempts[self.path] = attempts.get(self.path, 0) + 1
             attempt = attempts[self.path]
         try:
@@ -38,7 +41,11 @@ class Handler(BaseHTTPRequestHandler):
                     b"instead of a navigation shell, while remaining deterministic "
                     b"and independent from the Internet.</p>"
                     b"<p><a href='/second'>Continue reading</a></p>"
-                    b"<img src='/slow-resource.svg' alt='Slow decorative resource'>"
+                    + (
+                        b"<p>A long article paragraph for repeatable reading position tests. "
+                        b"The native reader and original website have independent layouts.</p>"
+                    ) * 60
+                    + b"<img src='/slow-resource.svg' alt='Slow decorative resource'>"
                     b"</article></body></html>",
                     "text/html",
                 )
@@ -71,7 +78,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.respond(404, b"{}")
         finally:
             with lock:
-                active -= 1
+                if api_request:
+                    active -= 1
 
     def item(self, item_id):
         if item_id == 101:
@@ -87,7 +95,7 @@ class Handler(BaseHTTPRequestHandler):
                     "<p><a href='https://example.com'>A useful link</a>"
                     "<pre>puts &quot;Hello, GNOME&quot;</pre>"
                 ),
-                "kids": [104] if item_id == 103 else [],
+                "kids": {103: [104], 139: [201], 201: [301]}.get(item_id, []),
             }
         result = {
             "id": item_id,
@@ -97,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
             "score": 125,
             "time": int(time.time()) - 3600,
             "descendants": 4,
-            "kids": [100, 101],
+            "kids": [100, 101] + list(range(110, 140)),
         }
         if item_id == 2:
             result["text"] = (

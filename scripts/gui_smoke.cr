@@ -5,7 +5,7 @@ require "../spec/support/gui_access"
 module HNReader::Testing
   class GuiSmoke
     INTERVAL_MS = 150_u32
-    MAX_TICKS   =     300
+    MAX_TICKS   =     700
 
     enum Step
       InitialFeed
@@ -18,6 +18,15 @@ module HNReader::Testing
       Discussion
       Replies
       BackToFeed
+      ReadingMore
+      ReadingDeep
+      ReadingArticle
+      ReadingRestart
+      ReadingRestoredArticle
+      ReadingRestoredDiscussion
+      ReadingWebsite
+      ReadingWebsiteScroll
+      ReadingRestoredWebsite
       NarrowLayout
       Settings
       About
@@ -33,7 +42,12 @@ module HNReader::Testing
     @feeds = HN::Feed.values.dup
     @scroll_position = 0.0
     @failed = false
+    @completed = false
     @settings : UI::Settings?
+    @discussion_offset = 0.0
+    @article_offset = 0.0
+    @website_offset = 0.0
+    @history_path = File.join(ENV["XDG_CONFIG_HOME"], "reading-history.json")
 
     def initialize
       @application = Adw::Application.new("#{APPLICATION_ID}.Smoke", Gio::ApplicationFlags::NonUnique)
@@ -43,8 +57,9 @@ module HNReader::Testing
     end
 
     def run : Int32
-      @application.run
-      @failed ? 1 : 0
+      Application.run_main_loop(@application)
+      STDERR.puts "GUI smoke exited before completion at #{@step}" unless @completed || @failed
+      @completed && !@failed ? 0 : 1
     end
 
     private def start : Nil
@@ -56,7 +71,7 @@ module HNReader::Testing
       )
       preferences.default_feed = HN::Feed::New
       saved = SavedItems.new(File.join(@output_directory, "saved-items.json"))
-      @window = UI::Window.new(@application, client, saved, preferences)
+      @window = UI::Window.new(@application, client, saved, preferences, ReadingHistory.new(@history_path))
       window.widget.present
       GLib.timeout_milliseconds(INTERVAL_MS) { tick }
     rescue error
@@ -72,19 +87,28 @@ module HNReader::Testing
       raise "GUI smoke timed out at #{@step}" if @ticks > MAX_TICKS
 
       case @step
-      in .initial_feed?  then check_initial_feed
-      in .failed_page?   then check_failed_page
-      in .retried_page?  then check_retried_page
-      in .feeds?         then check_feeds
-      in .article?       then check_article
-      in .next_page?     then check_next_page
-      in .previous_page? then check_previous_page
-      in .discussion?    then expand_replies
-      in .replies?       then check_replies
-      in .back_to_feed?  then check_back_to_feed
-      in .narrow_layout? then check_narrow_layout
-      in .settings?      then check_settings
-      in .about?         then check_about
+      in .initial_feed?                then check_initial_feed
+      in .failed_page?                 then check_failed_page
+      in .retried_page?                then check_retried_page
+      in .feeds?                       then check_feeds
+      in .article?                     then check_article
+      in .next_page?                   then check_next_page
+      in .previous_page?               then check_previous_page
+      in .discussion?                  then expand_replies
+      in .replies?                     then check_replies
+      in .back_to_feed?                then check_back_to_feed
+      in .reading_more?                then check_reading_more
+      in .reading_deep?                then check_reading_deep
+      in .reading_article?             then check_reading_article
+      in .reading_restart?             then restart_reading
+      in .reading_restored_article?    then check_restored_article
+      in .reading_restored_discussion? then check_restored_discussion
+      in .reading_website?             then check_reading_website
+      in .reading_website_scroll?      then check_website_scroll
+      in .reading_restored_website?    then check_restored_website
+      in .narrow_layout?               then check_narrow_layout
+      in .settings?                    then check_settings
+      in .about?                       then check_about
       in .server_stats?
         # The async stats request completes the test.
       end
@@ -196,6 +220,161 @@ module HNReader::Testing
 
       adjustment = window.feed_view.widget.vadjustment
       check((adjustment.value - @scroll_position).abs < 1.0, "Feed scroll was lost")
+      check(window.history.read?(1_i64), "Opened story was not marked read")
+      title = widgets(window.feed_view.list.row_at_index(0).not_nil!).compact_map(&.as?(Gtk::Label)).first
+      check(title.has_css_class("dim-label"), "Read title was not dimmed")
+      window.feed_view.unread_only.active = true
+      check(!window.feed_view.rendered_ids.includes?(1_i64), "Read story remains in unread filter")
+      # Activation must use the filtered row IDs, not the unfiltered loader index.
+      window.feed_view.list.row_activated_signal.emit(window.feed_view.list.row_at_index(0).not_nil!)
+      check(window.story_view.pages.visible_child_name == "discussion", "Filtered row opened the wrong story")
+      window.show_feed
+      window.feed_view.unread_only.active = false
+      window.show_story(window.feed_view.loader.items.first)
+      check(window.story_view.pages.visible_child_name == "discussion", "Last reading tab was not restored")
+      @step = Step::ReadingMore
+    end
+
+    private def check_reading_more : Nil
+      comments = window.story_view.comments.not_nil!
+      return unless comments.restored?
+
+      comments.more.clicked_signal.emit
+      @step = Step::ReadingDeep
+    end
+
+    private def check_reading_deep : Nil
+      comments = window.story_view.comments.not_nil!
+      return unless comments.restored?
+      return unless window.history.story(1_i64).loaded_count(1_i64) == 32
+
+      # Expand the page-two branch, then its child as it arrives.
+      expanders = widgets(window.story_view.discussion_box).compact_map(&.as?(Gtk::Expander))
+      expanders.each { |expander| expander.expanded = true }
+      return unless window.history.story(1_i64).expanded?(201_i64)
+      return unless comments.restored?
+      return unless window.story_view.discussion_position.not_nil!.restored?
+
+      adjustment = window.story_view.discussion_scroll.vadjustment
+      adjustment.value = 2100.0
+      @discussion_offset = adjustment.value
+      check(@discussion_offset > 0, "Discussion fixture is not scrollable")
+      window.story_view.pages.visible_child_name = "article"
+      @step = Step::ReadingArticle
+    end
+
+    private def check_reading_article : Nil
+      article = window.story_view.article.not_nil!
+      check(article.reader_button.active?, "Reader mode was changed without a user choice")
+      return unless article.reader_position.try(&.restored?)
+
+      article.reader_scroll.vadjustment.value = 600.0
+      @article_offset = article.reader_scroll.vadjustment.value
+      check(@article_offset > 0, "Article fixture is not scrollable")
+      @step = Step::ReadingRestart
+    end
+
+    private def recreate_window : Nil
+      old = window
+      # Keep an application window alive while closing the old one, then reload
+      # from disk rather than sharing the old ReadingHistory object.
+      placeholder = Adw::ApplicationWindow.new(application: @application)
+      placeholder.present
+      old.widget.close
+      @window = UI::Window.new(
+        @application,
+        HN::Client.new(HTTP::SoupTransport.new, "#{@base_url}/v0"),
+        SavedItems.new(File.join(@output_directory, "saved-items.json")),
+        old.preferences,
+        ReadingHistory.new(@history_path)
+      )
+      window.widget.present
+      placeholder.close
+    end
+
+    private def restart_reading : Nil
+      recreate_window
+      @step = Step::ReadingRestoredArticle
+    end
+
+    private def check_restored_article : Nil
+      return if window.feed_view.loader.loading?
+      if window.navigation.visible_child_name != "story"
+        check(window.history.read?(1_i64), "Read mark did not survive restart")
+        window.show_story(window.feed_view.loader.items.first)
+      end
+      article = window.story_view.article.not_nil!
+      return unless article.reader_position.try(&.restored?)
+
+      check((article.reader_scroll.vadjustment.value - @article_offset).abs < 1, "Article position did not survive restart")
+      window.story_view.pages.visible_child_name = "discussion"
+      @step = Step::ReadingRestoredDiscussion
+    end
+
+    private def check_restored_discussion : Nil
+      return unless window.story_view.discussion_position.not_nil!.restored?
+      check((window.story_view.discussion_scroll.vadjustment.value - @discussion_offset).abs < 1, "Discussion position did not survive restart")
+      expanders = widgets(window.story_view.discussion_box).compact_map(&.as?(Gtk::Expander))
+      check(expanders.size == 4 && expanders.all?(&.expanded), "Deep/page-two expansions were not restored")
+      # Collapsing one branch must persist too.
+      expanders.first.expanded = false
+      unread = widgets(window.story_view.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.label == "Mark as unread" }.not_nil!
+      unread.clicked_signal.emit
+      window.show_feed
+      check(!ReadingHistory.new(@history_path).read?(1_i64), "Mark unread was not persisted")
+      check(window.history.story(1_i64).position("discussion") == @discussion_offset, "Mark unread erased progress")
+      title = widgets(window.feed_view.list.row_at_index(0).not_nil!).compact_map(&.as?(Gtk::Label)).first
+      check(!title.has_css_class("dim-label"), "Unread title is still dimmed")
+      window.feed_view.unread_only.active = true
+      check(window.feed_view.rendered_ids.includes?(1_i64), "Marked unread story did not return to the filter")
+      window.feed_view.unread_only.active = false
+      window.show_story(window.feed_view.loader.items.first)
+      window.story_view.pages.visible_child_name = "article"
+      window.story_view.article.not_nil!.reader_button.active = false
+      @step = Step::ReadingWebsite
+    end
+
+    private def check_reading_website : Nil
+      web = window.story_view.article.not_nil!.web
+      return if web.is_loading?
+
+      web.evaluate_javascript("window.scrollTo(0, 850)", -1_i64, nil, nil, nil) do |source, result|
+        WebKit::WebView.cast(source).evaluate_javascript_finish(result)
+      end
+      @step = Step::ReadingWebsiteScroll
+    end
+
+    private def check_website_scroll : Nil
+      @website_offset = window.history.story(1_i64).position("website:#{@base_url}/article")
+      return if @website_offset <= 0
+
+      recreate_window
+      @step = Step::ReadingRestoredWebsite
+    end
+
+    private def check_restored_website : Nil
+      return if window.feed_view.loader.loading?
+      if window.navigation.visible_child_name != "story"
+        window.show_story(window.feed_view.loader.items.first)
+      end
+      article = window.story_view.article.not_nil!
+      check(!article.reader_button.active?, "Original website mode was not restored")
+      return if article.web.is_loading?
+
+      article.web.evaluate_javascript("window.scrollY", -1_i64, nil, nil, nil) do |source, result|
+        offset = WebKit::WebView.cast(source).evaluate_javascript_finish(result).to_double
+        next if offset == 0
+        begin
+          check((offset - @website_offset).abs < 1, "Website position did not survive restart")
+          check(!window.history.story(1_i64).expanded?(101_i64), "Collapsed branch did not survive restart")
+          start_narrow_layout
+        rescue error
+          fail_test(error)
+        end
+      end
+    end
+
+    private def start_narrow_layout : Nil
       window.show_story(window.feed_view.loader.items[1])
       check(window.story_view.pages.visible_child_name == "discussion", "Text post opened Article")
       check(window.story_view.article.nil?, "Text post created WebKit unnecessarily")
@@ -277,7 +456,8 @@ module HNReader::Testing
           in String  then peak = JSON.parse(response)["peak"].as_i
           end
           check(peak <= HTTP::SoupTransport::MAX_ACTIVE, "Exceeded HTTP concurrency limit: #{peak}")
-          puts "GUI smoke passed: feeds, pagination/retry, WebKit history, comments, text posts, scroll, dark/narrow layout; peak HTTP concurrency #{peak}."
+          puts "GUI smoke passed: feeds, pagination/retry, unread filter, read marks, native/website/discussion positions across recreated windows, deep comment restoration, WebKit history, text posts, dark/narrow layout; peak HTTP concurrency #{peak}."
+          @completed = true
           @application.quit
         rescue exception
           fail_test(exception)
