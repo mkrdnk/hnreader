@@ -48,11 +48,12 @@ module HNReader::UI
       @metadata.label = Formatting.metadata(item)
       Widgets.clear(@save_actions)
       @save_actions.append(Widgets.save_button(@saved.saved?(item), "article") { @saved.toggle(item) })
-      unread = Widgets.button("Mark as unread") do
+      unread = Widgets.icon_button("mail-unread-symbolic", "Mark as unread") do
         reading.read = false
       end
       unread.clicked_signal.connect do
-        unread.label = "Marked as unread"
+        unread.icon_name = "emblem-ok-symbolic"
+        unread.tooltip_text = "Marked as unread"
         unread.sensitive = false
       end
       @save_actions.append(unread)
@@ -75,20 +76,27 @@ module HNReader::UI
     end
 
     private def build : Nil
-      heading = Gtk::Box.new(Gtk::Orientation::Vertical, 8)
+      heading = Gtk::Box.new(Gtk::Orientation::Vertical, 6)
       Widgets.margins(heading)
+      heading.margin_top = 8
+      heading.margin_bottom = 8
       @title.selectable = true
       heading.append(@title)
       heading.append(@metadata)
+
+      actions = Gtk::Box.new(Gtk::Orientation::Horizontal, 8)
+      actions.append(Gtk::StackSwitcher.new(
+        stack: @pages,
+        hexpand: true,
+        halign: Gtk::Align::Start,
+        valign: Gtk::Align::Center,
+      ))
       @save_actions.halign = Gtk::Align::End
-      heading.append(@save_actions)
+      @save_actions.valign = Gtk::Align::Center
+      actions.append(@save_actions)
+      heading.append(actions)
       @widget.append(heading)
 
-      @widget.append(Gtk::StackSwitcher.new(
-        stack: @pages,
-        halign: Gtk::Align::Center,
-        margin_bottom: 12,
-      ))
       @pages.add_titled(@article_box, "article", "Article")
 
       Widgets.margins(@discussion_box)

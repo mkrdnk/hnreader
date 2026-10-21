@@ -9,7 +9,7 @@ module HNReader::UI
   end
 
   class StoryView
-    getter pages, article, discussion_box, discussion_scroll, comments, discussion_position
+    getter pages, article, article_box, discussion_box, discussion_scroll, comments, discussion_position
   end
 
   class CommentsView

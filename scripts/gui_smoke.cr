@@ -27,6 +27,7 @@ module HNReader::Testing
       ReadingWebsite
       ReadingWebsiteScroll
       ReadingRestoredWebsite
+      NarrowArticle
       NarrowLayout
       Settings
       About
@@ -106,6 +107,7 @@ module HNReader::Testing
       in .reading_website?             then check_reading_website
       in .reading_website_scroll?      then check_website_scroll
       in .reading_restored_website?    then check_restored_website
+      in .narrow_article?              then check_narrow_article
       in .narrow_layout?               then check_narrow_layout
       in .settings?                    then check_settings
       in .about?                       then check_about
@@ -184,6 +186,15 @@ module HNReader::Testing
       check(reader_text.includes?("  first line\n    second line\n"), "Reader lost code indentation")
       check(article.reader_button.active?, "Reader mode was not enabled by default")
       return unless capture("02-article")
+      check_story_header(has_article: true)
+      save = widgets(window.story_view.widget).compact_map(&.as?(Gtk::Button)).find do |button|
+        button.tooltip_text == "Save article" || button.tooltip_text == "Remove article from saved"
+      end.not_nil!
+      saved_before = save.has_css_class("suggested-action")
+      save.clicked_signal.emit
+      check(save.has_css_class("suggested-action") != saved_before, "Story save button did not toggle")
+      save.clicked_signal.emit
+      check(save.has_css_class("suggested-action") == saved_before, "Story save button did not restore its state")
       web.load_uri("#{@base_url}/second")
       @step = Step::NextPage
     end
@@ -325,8 +336,10 @@ module HNReader::Testing
       check(expanders.size == 4 && expanders.all?(&.expanded), "Deep/page-two expansions were not restored")
       # Collapsing one branch must persist too.
       expanders.first.expanded = false
-      unread = widgets(window.story_view.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.label == "Mark as unread" }.not_nil!
+      unread = widgets(window.story_view.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.tooltip_text == "Mark as unread" }.not_nil!
       unread.clicked_signal.emit
+      check(!unread.sensitive? && unread.tooltip_text == "Marked as unread", "Mark unread confirmation missing")
+      check(unread.icon_name == "emblem-ok-symbolic", "Mark unread icon did not confirm the action")
       window.show_feed
       check(!ReadingHistory.new(@history_path).read?(1_i64), "Mark unread was not persisted")
       check(window.history.story(1_i64).position("discussion") == @discussion_offset, "Mark unread erased progress")
@@ -382,11 +395,33 @@ module HNReader::Testing
     end
 
     private def start_narrow_layout : Nil
+      window.story_view.article.not_nil!.reader_button.active = true
+      window.widget.set_default_size(420, 720)
+      Adw::StyleManager.default.color_scheme = Adw::ColorScheme::ForceDark
+      @step = Step::NarrowArticle
+    end
+
+    private def check_narrow_article : Nil
+      return if window.navigation.transition_running? || window.widget.width > 440
+      return unless window.story_view.article.not_nil!.reader_position.try(&.restored?)
+
+      check_story_header(has_article: true)
+      title = widgets(window.story_view.widget).compact_map(&.as?(Gtk::Label)).find { |label| label.has_css_class("title-2") }.not_nil!
+      check(title.wrap? && title.ellipsize == Pango::EllipsizeMode::None, "Story title was truncated")
+      check(title.text == window.feed_view.loader.items.first.title, "Story title lost text")
+      check(title.layout.line_count > 1, "Narrow layout did not exercise a wrapped title")
+      return unless capture("04-narrow-article")
+      switcher = widgets(window.story_view.widget).compact_map(&.as?(Gtk::StackSwitcher)).first
+      {"Discussion" => "discussion", "Article" => "article"}.each do |label, page|
+        tab = widgets(switcher).compact_map(&.as?(Gtk::ToggleButton)).find do |button|
+          widgets(button).compact_map(&.as?(Gtk::Label)).any? { |child| child.text == label }
+        end.not_nil!
+        tab.active = true
+        check(window.story_view.pages.visible_child_name == page, "Story tab did not switch to #{page}")
+      end
       window.show_story(window.feed_view.loader.items[1])
       check(window.story_view.pages.visible_child_name == "discussion", "Text post opened Article")
       check(window.story_view.article.nil?, "Text post created WebKit unnecessarily")
-      window.widget.set_default_size(420, 720)
-      Adw::StyleManager.default.color_scheme = Adw::ColorScheme::ForceDark
       @step = Step::NarrowLayout
     end
 
@@ -394,6 +429,7 @@ module HNReader::Testing
       return if window.navigation.transition_running? || window.widget.width > 440
       return unless discussion_texts.any?(&.includes?("A native comment"))
 
+      check_story_header(has_article: false)
       return unless capture("04-narrow-dark")
       window.theme.select(UI::Theme::Mode::Sepia)
       @settings = UI::Settings.new(window.theme, window.client, window.preferences)
@@ -474,6 +510,22 @@ module HNReader::Testing
 
     private def discussion_texts : Array(String)
       widgets(window.story_view.discussion_box).compact_map(&.as?(Gtk::Label)).map(&.text)
+    end
+
+    private def check_story_header(has_article : Bool) : Nil
+      story = window.story_view
+      switcher = widgets(story.widget).compact_map(&.as?(Gtk::StackSwitcher)).first
+      unread = widgets(story.widget).compact_map(&.as?(Gtk::Button)).find { |button| button.tooltip_text == "Mark as unread" }.not_nil!
+      actions = unread.parent.not_nil!
+      check(switcher.parent == actions.parent, "Story tabs and actions are not in the same row")
+      tabs_bounds = switcher.compute_bounds(story.widget)
+      actions_bounds = actions.compute_bounds(story.widget)
+      check((tabs_bounds.center.y - actions_bounds.center.y).abs < 1, "Story tabs and actions are not vertically aligned")
+      check(tabs_bounds.x + tabs_bounds.width <= actions_bounds.x, "Story tabs overlap actions")
+      check(tabs_bounds.x >= 0 && actions_bounds.x + actions_bounds.width <= story.widget.width, "Story controls overflow the window")
+      check(unread.label.nil? && unread.icon_name == "mail-unread-symbolic", "Mark unread is not an icon button")
+      article_page = story.pages.page(story.article_box)
+      check(article_page.visible? == has_article, "Article tab visibility is incorrect")
     end
 
     private def widgets(root : Gtk::Widget) : Array(Gtk::Widget)

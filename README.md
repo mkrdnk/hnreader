@@ -140,7 +140,7 @@ uninstalling.
 - Expand a comment's replies to load them. Each level is paginated independently.
 - Opened stories have dimmed titles in feeds and saved items. Enable **Only unread**
   in the feed to hide them; **Load More** still searches the next page of the feed.
-  Use **Mark as unread** on a story's screen or the envelope button in the feed
+  Use the **Mark as unread** envelope button beside Save on a story's screen, or in the feed,
   to remove the read mark without deleting your reading position.
 - Reopening a story resumes its last **Article** or **Discussion** tab. Reading
   positions are saved separately for the native reader, original website and
